@@ -1,0 +1,22 @@
+settings = {
+    orientation = {
+        default = "portrait", -- 預設方向（"portrait" 或 "landscape"）
+        supported = { "portrait", "portraitUpsideDown" }, -- 支持的方向
+    },
+    android = {
+        versionCode = "1", -- Android 版本代碼
+        usesPermissions = {
+            "android.permission.INTERNET", -- 使用網路權限
+        },
+	mavenRepository = {
+                "https://repo.maven.apache.org/maven2/"
+        },
+    },
+    iphone = {
+        plist = {
+            CFBundleShortVersionString = "1.0", -- iOS 版本號
+            UIStatusBarHidden = true, -- 隱藏狀態列
+            UILaunchStoryboardName = "LaunchScreen", -- 啟動畫面（可選）
+        },
+    },
+}
