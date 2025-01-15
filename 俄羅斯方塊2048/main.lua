@@ -359,261 +359,116 @@ local function MaintoCut(i, j)
   MainGrid[i][j] = 0 -- 將主網格該位置清空
 end
 
-local function ExtendCut(i, j)
-  -- 向指定方向延伸剪取，將相同的方塊加入剪取區
-  
-  local Y, X, Y1, X1, Y2, X2, Z1, X3, Y3
+-- 定義節點
+Node = {}
+Node.__index = Node
 
-  -- 確定方向相關的索引
-  if direction == "up" or direction == "down" then
-    Z1 = j
-  elseif direction == "left" or direction == "right" then
-    Z1 = i
-  end
-
-  -- 計算下一個可能剪取的方塊位置
-  if direction == "up" then
-    X3, Y3 = i - 1, j
-  elseif direction == "down" then
-    X3, Y3 = i + 1, j
-  elseif direction == "left" then
-    X3, Y3 = i, j - 1
-  elseif direction == "right" then
-    X3, Y3 = i, j + 1
-  end
-
-  -- 如果下一個方塊符合條件，則遞歸剪取
-  if X3 > 0 and Y3 > 0 and MainGrid[X3][Y3] ~= 0 and CutSquare[i][j] == MainGrid[X3][Y3] then
-    MaintoCut(X3, Y3)
-    ExtendCut(X3, Y3)
-  end
-
-  -- 向其他方向延伸
-  for z = Z1 - 1, 1, -1 do
-    if direction == "up" or direction == "down" then
-      Y, X = i, z
-      Y2, X2 = Y, X + 1
-    elseif direction == "left" or direction == "right" then
-      Y, X = z, j
-      Y2, X2 = Y + 1, X
-    end
-
-    -- 計算新的位置
-    if direction == "up" then
-      Y1, X1 = Y - 1, X
-    elseif direction == "down" then
-      Y1, X1 = Y + 1, X
-    elseif direction == "left" then
-      Y1, X1 = Y, X - 1
-    elseif direction == "right" then
-      Y1, X1 = Y, X + 1
-    end
-
-    -- 如果滿足條件則繼續剪取
-    if BlockPosition[1] == MainGrid[Y][X] and MainGrid[Y][X] == CutSquare[Y2][X2] then
-      if MainGrid[Y1][X1] ~= 0 then
-        MaintoCut(Y1, X1)
-        ExtendCut(Y1, X1)
-      end
-      -- 更新方塊的初始位置
-      if (direction == "up" or direction == "down") and BlockPosition[2] > z then BlockPosition[2] = z end
-      if (direction == "left" or direction == "right") and BlockPosition[3] > z then BlockPosition[3] = z end
-      MaintoCut(Y, X)
-    elseif MainGrid[Y][X] == 0 then
-      break -- 如果空白則停止
-    end
-  end
+function Node:new(x, y)
+    return setmetatable({ x = x, y = y, next = nil }, Node)
 end
 
-local function cut(i, j)
-  -- 嘗試從主網格剪取指定位置的方塊
-  if MainGrid[i][j] ~= 0 and (BlockPosition[1] == 0 or (BlockPosition[1] == MainGrid[i][j] and
-    ((j < 10 and MainGrid[i][j] == CutSquare[i][j + 1]) or
-     (i < 10 and MainGrid[i][j] == CutSquare[i + 1][j]) or
-     (j > 1 and MainGrid[i][j] == CutSquare[i][j - 1]) or
-     (i > 1 and MainGrid[i][j] == CutSquare[i - 1][j])))) then
+-- 定義堆疊
+Stack = {}
+Stack.__index = Stack
 
-    if BlockPosition[1] == 0 then
-      -- 初始化剪取位置
-      BlockPosition = {MainGrid[i][j], j, i}
+-- 堆疊構造函數
+function Stack:new()
+    return setmetatable({ top = nil, size = 0 }, Stack)
+end
+
+-- 壓入堆疊 (push)
+function Stack:push(x, y)
+    local newNode = Node:new(x, y)
+    newNode.next = self.top
+    self.top = newNode
+    self.size = self.size + 1
+end
+
+-- 彈出堆疊 (pop)
+function Stack:pop()
+    if not self.top then
+        return nil, "Stack is empty"
     end
+    local x, y = self.top.x, self.top.y
+    self.top = self.top.next
+    self.size = self.size - 1
+    return x, y
+end
 
-    bottom = i + 1
-    if BlockPosition[2] > j then BlockPosition[2] = j end -- 更新起始 X 座標
+-- 檢查堆疊是否為空
+function Stack:isEmpty()
+    return self.size == 0
+end
 
-    -- 將方塊移至剪取區
+local straight = Stack:new()
+local horizontal = Stack:new()
+
+local function cut(i,j)
+  if(MainGrid[i][j] ~= 0)then
+    if(BlockPosition[1]==0)then BlockPosition={MainGrid[i][j],j,i} end
+    if(BlockPosition[2]>j)then BlockPosition[2]=j end
+    if(BlockPosition[3]>i)then BlockPosition[3]=i end
+    if(tail<j)then tail=j end
+    if(bottom<i)then bottom=i end
+
     MaintoCut(i, j)
-    NoBlankLine = 1 -- 記錄本行有有效方塊
-
-    -- 如果上下方塊相同則繼續延伸
-    if i > 1 and CutSquare[i][j] == CutSquare[i - 1][j] then
-      ExtendCut(i, j)
-    end
   end
 
-  -- 判斷是否到達本行結尾
-  if (NoBlankLine == 1 and j < COLS and MainGrid[i][j + 1] == 0) or (NoBlankLine == 1 and j == COLS) then
-    NoBlankLine = 0
-    if tail < j then tail = j end -- 更新尾部位置
-    return 1
+  if(i~=1 and MainGrid[i-1][j] ~= 0 and MainGrid[i-1][j] == BlockPosition[1])then straight:push(i-1, j) end
+  if(i~=10 and MainGrid[i+1][j] ~= 0 and MainGrid[i+1][j] == BlockPosition[1])then straight:push(i+1, j) end
+  if(j~=1 and MainGrid[i][j-1] ~= 0 and MainGrid[i][j-1] == BlockPosition[1])then horizontal:push(i, j-1) end
+  if(j~=10 and MainGrid[i][j+1] ~= 0 and MainGrid[i][j+1] == BlockPosition[1])then horizontal:push(i, j+1) end
+
+  if not horizontal:isEmpty() then
+    local ni, nj = horizontal:pop()
+    cut(ni, nj)
+  elseif not straight:isEmpty() then
+    local ni, nj = straight:pop()
+    cut(ni, nj)
+  end
+end
+
+local function traverseGrid()
+  local rowStart, rowEnd, rowStep = 1, ROWS, 1
+  local colStart, colEnd, colStep = 1, COLS, 1
+  local swap = false -- 標記是否需要交換 i 和 j
+
+  if direction == "down" then
+      rowStart, rowEnd, rowStep = ROWS, 1, -1
+  elseif direction == "right" then
+      rowStart, rowEnd, rowStep = ROWS, 1, -1
+      swap = true -- 如果是右方向，需要交換
+  elseif direction == "left" then
+      swap = true -- 如果是左方向，也需要交換
   end
 
-  if j == COLS and BlockPosition[1] ~= 0 then
-    BlankLine = 1 -- 記錄空白行
+  for i = rowStart, rowEnd, rowStep do
+      for j = colStart, colEnd, colStep do
+          -- 如果需要交換 i 和 j
+          local x, y = i, j
+          if swap then
+              x, y = j, i -- 交換 i 和 j
+          end
+
+          if MainGrid[x][y] ~= 0 then
+              cut(x, y) -- 使用交換後的座標
+              return -- 停止遍歷
+          end
+      end
   end
-  return 0
 end
 
--- 省略後續類似 `cut2`, `cut3`, `cut4` 註釋邏輯，與 `cut` 結構相似。
-
-local function cut2(i,j)
-  --為初始抓到的方塊/此方塊跟剪取區上下左右方塊一樣
-      if(MainGrid[i][j]~=0 and (BlockPosition[1]==0 or (BlockPosition[1]==MainGrid[i][j] and ((j<10 and MainGrid[i][j]==CutSquare[i][j+1]) or (i<10 and MainGrid[i][j]==CutSquare[i+1][j]) or (j>1 and MainGrid[i][j]==CutSquare[i][j-1]) or (i>1 and MainGrid[i][j]==CutSquare[i-1][j])))))then
-        if(BlockPosition[1]==0)then --為初始抓到方塊處理
-          BlockPosition={MainGrid[i][j],j,i} 
-          bottom=i+1
-        end
-        
-        if(BlockPosition[3]>i)then BlockPosition[3]=i end
-        if(BlockPosition[2]>j)then BlockPosition[2]=j end--x初始位置
-        
-        --把主要網格方塊剪到剪取區
-        MaintoCut(i,j)
-        NoBlankLine=1--代表此行抓到值了
-        
-        if(i<10 and CutSquare[i][j]==CutSquare[i+1][j])then--如果此方塊跟剪取區下面的方塊一樣再做處理
-          ExtendCut(i,j)
-        end
-      end
-        
-      if((NoBlankLine==1 and j<COLS and MainGrid[i][j+1]==0) or (NoBlankLine==1 and j==COLS))then --判斷這邊是方塊尾端
-        NoBlankLine=0
-        if(tail<j) then tail=j end--將尾的值更新
-        return 1
-      end
-      if(j==COLS and BlockPosition[1]~=0)then BlankLine=1 end--判斷這列沒抓到值
-      return 0
-end
-
-local function cut3(i,j)
-  --為初始抓到的方塊/此方塊跟剪取區上下左右方塊一樣
-      if(MainGrid[i][j]~=0 and (BlockPosition[1]==0 or (BlockPosition[1]==MainGrid[i][j] and ((j<10 and MainGrid[i][j]==CutSquare[i][j+1]) or (i<10 and MainGrid[i][j]==CutSquare[i+1][j]) or (j>1 and MainGrid[i][j]==CutSquare[i][j-1]) or (i>1 and MainGrid[i][j]==CutSquare[i-1][j])))))then
-        if(BlockPosition[1]==0)then --為初始抓到方塊處理
-          BlockPosition={MainGrid[i][j],j,i} 
-        end
-        
-        bottom=j+1
-        if(BlockPosition[3]>i)then BlockPosition[3]=i end--會變的y初始位置
-        
-        --把主要網格方塊剪到剪取區(可做成副程式)
-        MaintoCut(i,j)
-        NoBlankLine=1--代表此行抓到值了
-        
-        if(i>1 and CutSquare[i][j]==CutSquare[i][j-1])then--如果此方塊跟剪取區左邊的方塊一樣再做處理
-          ExtendCut(i,j)
-        end
-      end
-        
-      if((NoBlankLine==1 and i<ROWS and MainGrid[i+1][j]==0) or (NoBlankLine==1 and i==ROWS))then --判斷這邊是方塊尾端
-        NoBlankLine=0
-        if(tail<i) then tail=i end--將尾的值更新
-        return 1
-      end
-      if(i==ROWS and BlockPosition[1]~=0)then BlankLine=1 end--判斷這行沒抓到值
-      return 0
-end
-
-local function cut4(i,j)
-  --為初始抓到的方塊/此方塊跟剪取區上下左右方塊一樣
-      if(MainGrid[i][j]~=0 and (BlockPosition[1]==0 or (BlockPosition[1]==MainGrid[i][j] and ((j<10 and MainGrid[i][j]==CutSquare[i][j+1]) or (i<10 and MainGrid[i][j]==CutSquare[i+1][j]) or (j>1 and MainGrid[i][j]==CutSquare[i][j-1]) or (i>1 and MainGrid[i][j]==CutSquare[i-1][j])))))then
-        if(BlockPosition[1]==0)then --為初始抓到方塊處理
-          BlockPosition={MainGrid[i][j],j,i} 
-          bottom=j+1
-        end
-        
-        if(BlockPosition[3]>i)then BlockPosition[3]=i end--會變的y初始位置
-        if(BlockPosition[2]>j)then BlockPosition[2]=j end
-        
-        --把主要網格方塊剪到剪取區
-        MaintoCut(i,j)
-        NoBlankLine=1--代表此行抓到值了
-        
-        if(i>1 and CutSquare[i][j]==CutSquare[i][j+1])then--如果此方塊跟剪取區右邊的方塊一樣再做處理
-          ExtendCut(i,j)
-        end
-      end
-        
-      if((NoBlankLine==1 and i<ROWS and MainGrid[i+1][j]==0) or (NoBlankLine==1 and i==ROWS))then --判斷這邊是方塊尾端
-        NoBlankLine=0
-        if(tail<i) then tail=i end--將尾的值更新
-        return 1
-      end
-      if(i==ROWS and BlockPosition[1]~=0)then BlankLine=1 end--判斷這行沒抓到值
-      return 0
-end
 
 local function move_cut() -- 剪取方塊
-  NoBlankLine=0
   BlankLine=0
-  tail=0
   BlockPosition={0,0,0} -- [剪取方塊的顏色, 初始x, 初始y]
   BlockLength=0 -- 剪取方塊的長度
   BlockWidth=0 -- 剪取方塊的寬度
+  tail=0
   bottom=0 -- 剪取區底部
-  
-  -- 根據方向進行處理
-  if(direction=="up")then
-    for i=1,ROWS do -- 從上往下遍歷
-      for j=1,COLS do
-        if(cut(i,j)==1)then break end -- 如果到達尾端停止
-      end
-      if(BlankLine==1)then -- 如果有空行則停止
-        BlankLine=0
-        break
-      end
-    end
-    BlockLength=bottom-BlockPosition[3] -- 計算方塊長度
-    BlockWidth=tail-BlockPosition[2]+1 -- 計算方塊寬度
-    
-  elseif(direction=="down")then
-    for i=ROWS,1,-1 do -- 從下往上遍歷
-      for j=1,COLS do
-        if(cut2(i,j)==1)then break end
-      end
-      if(BlankLine==1)then
-        BlankLine=0
-        break
-      end
-    end
-    BlockLength=bottom-BlockPosition[3]
-    BlockWidth=tail-BlockPosition[2]+1
-    
-  elseif(direction=="left")then
-    for i=1,ROWS do -- 從左往右遍歷
-      for j=1,COLS do
-        if(cut3(j,i)==1)then break end
-      end
-      if(BlankLine==1)then
-        BlankLine=0
-        break
-      end
-    end
-    BlockLength=tail-BlockPosition[3]+1
-    BlockWidth=bottom-BlockPosition[2]
-    
-  elseif(direction=="right")then
-    for i=ROWS,1,-1 do -- 從右往左遍歷
-      for j=1,COLS do
-        if(cut4(j,i)==1)then break end
-      end
-      if(BlankLine==1)then
-        BlankLine=0
-        break
-      end
-    end
-    BlockLength=tail-BlockPosition[3]+1
-    BlockWidth=bottom-BlockPosition[2]
-  end
+  traverseGrid()
+  BlockLength=bottom-BlockPosition[3]+1 -- 計算方塊長度
+  BlockWidth=tail-BlockPosition[2]+1 -- 計算方塊寬度
 end
 
 -- 用於將所有方塊移動到備用區的最上面
@@ -634,6 +489,7 @@ local function BackupMove(AddSub)
       len = 11 - BlockWidth
     end
 
+    print(BlockLength..BlockWidth..BlockPosition[2]..BlockPosition[3])
     -- 從當前位置向上尋找空間
     while (true) do
       if (direction == "up" or direction == "down") then
