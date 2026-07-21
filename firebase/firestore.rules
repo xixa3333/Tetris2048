@@ -1,0 +1,38 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function validScore() {
+      return request.resource.data.keys().hasOnly([
+          'uid', 'account', 'score', 'createdAt', 'version'
+        ])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.account == request.auth.token.email
+        && request.resource.data.score is int
+        && request.resource.data.score >= 0
+        && request.resource.data.score <= 1000000000
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.createdAt <= request.time
+        && request.resource.data.version is string;
+    }
+
+    match /scores/{scoreId} {
+      allow read: if signedIn();
+      allow create: if signedIn() && validScore();
+      allow update, delete: if false;
+    }
+
+    match /users/{userId} {
+      allow read, create, update, delete:
+        if signedIn() && request.auth.uid == userId;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

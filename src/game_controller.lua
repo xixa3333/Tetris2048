@@ -19,6 +19,8 @@ function GameController.new(dependencies)
         sound = dependencies.sound or {},
         input = dependencies.input or {},
         random = dependencies.random or math.random,
+        onGameOver = dependencies.onGameOver,
+        onHome = dependencies.onHome,
         pendingTimers = {}
     }, GameController)
 end
@@ -55,7 +57,11 @@ function GameController:finishGame()
     self.state.isBusy = false
     if self.input.stop then self.input:stop() end
     if self.sound.playGameOver then self.sound:playGameOver() end
-    self.view:showGameOver(function() self:restart() end)
+    if self.onGameOver then self.onGameOver(self.state.score) end
+    self.view:showGameOver(function()
+        self:cancelPendingWork()
+        if self.onHome then self.onHome() end
+    end)
 end
 
 function GameController:handle(command)

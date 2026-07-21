@@ -7,6 +7,14 @@ local files = {
     "../src/main.lua",
     "../src/movieclip.lua",
     "../src/ui_renderer.lua",
+    "../src/app_controller.lua",
+    "../src/app_view.lua",
+    "../src/auth_service.lua",
+    "../src/firebase_config.lua",
+    "../src/global_leaderboard.lua",
+    "../src/http_client.lua",
+    "../src/json_storage.lua",
+    "../src/local_leaderboard.lua",
     "../src/config.lua",
     "../src/build.settings",
     "test_helper.lua",
@@ -15,6 +23,8 @@ local files = {
     "integration_controller_test.lua",
     "boundary_test.lua",
     "white_box_test.lua",
+    "unit_services_test.lua",
+    "integration_app_test.lua",
     "run.lua"
 }
 

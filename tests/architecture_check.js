@@ -46,5 +46,21 @@ test("Architecture: renderer owns separate animation and overlay groups", () => 
   }
 });
 
+test("Architecture: app flow depends on injected service contracts", () => {
+  const contents = read("../src/app_controller.lua");
+  for (const dependency of ["view", "game", "auth", "localBoard", "globalBoard", "platform"]) {
+    assert(contents.includes(`d.${dependency}`), `missing app dependency: ${dependency}`);
+  }
+  for (const forbidden of ["display.", "native.", "network.", 'require("widget")']) {
+    assert(!contents.includes(forbidden), `app controller contains platform dependency ${forbidden}`);
+  }
+});
+
+test("Architecture: Firebase configuration contains no password or private key", () => {
+  const contents = read("../src/firebase_config.lua").toLowerCase();
+  assert(!contents.includes("password"), "Firebase configuration contains password material");
+  assert(!contents.includes("private_key"), "Firebase configuration contains a private key");
+});
+
 console.log(`Architecture result: ${passed} passed, ${failed} failed\n`);
 if (failed > 0) process.exit(1);
