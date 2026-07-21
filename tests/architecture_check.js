@@ -48,7 +48,7 @@ test("Architecture: renderer owns separate animation and overlay groups", () => 
 
 test("Architecture: app flow depends on injected service contracts", () => {
   const contents = read("../src/app_controller.lua");
-  for (const dependency of ["view", "game", "auth", "localBoard", "globalBoard", "platform"]) {
+  for (const dependency of ["view", "game", "auth", "profile", "localBoard", "globalBoard", "platform"]) {
     assert(contents.includes(`d.${dependency}`), `missing app dependency: ${dependency}`);
   }
   for (const forbidden of ["display.", "native.", "network.", 'require("widget")']) {

@@ -12,6 +12,7 @@ local function build(signedIn)
     local view={screen=nil}; function view:showCover(actions) self.screen="cover";self.actions=actions end
     function view:showIntro(back) self.screen="intro";self.back=back end
     function view:showAuth(actions) self.screen="auth";self.actions=actions end
+    function view:showNickname(save,back) self.screen="nickname";self.saveNickname=save;self.back=back end
     function view:showLeaderboard(title,records,actions) self.screen=title;self.records=records;self.actions=actions end
     function view:showLoading() self.screen="loading" end
     function view:showError() self.screen="error" end
@@ -25,8 +26,12 @@ local function build(signedIn)
     function localBoard:remove() return true end
     local global={adds=0}; function global:list(callback) callback(true,{}) end
     function global:add(_,callback) self.adds=self.adds+1;callback(true) end
+    function global:updateNickname(callback) callback(true) end
+    local profile={}
+    function profile:get(callback) auth.user.nickname="測試玩家"; callback(true,"測試玩家") end
+    function profile:save(nickname,callback) auth.user.nickname=nickname; callback(true,nickname) end
     local platform={exits=0}; function platform:exit() self.exits=self.exits+1 end
-    return AppController.new({view=view,game=game,auth=auth,localBoard=localBoard,globalBoard=global,platform=platform,clock=function() return 1 end}),view,game,localBoard,global
+    return AppController.new({view=view,game=game,auth=auth,profile=profile,localBoard=localBoard,globalBoard=global,platform=platform,clock=function() return 1 end}),view,game,localBoard,global
 end
 
 T.test("Cover routes to game and intro without coupling game logic to screens",function()

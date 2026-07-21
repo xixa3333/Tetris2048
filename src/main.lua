@@ -9,6 +9,8 @@ local AuthService=require("auth_service")
 local LocalLeaderboard=require("local_leaderboard")
 local GlobalLeaderboard=require("global_leaderboard")
 local JsonStorage=require("json_storage")
+local ProfileService=require("profile_service")
+local InputAdapter=require("input_adapter")
 local firebaseConfig=require("firebase_config")
 
 math.randomseed(os.time())
@@ -20,16 +22,7 @@ local sound={}
 function sound:playBackground() audio.stop(1); audio.play(audioFiles.background,{channel=1,loops=-1}); audio.setVolume(0.15,{channel=1}) end
 function sound:playEliminate() audio.play(audioFiles.eliminate,{channel=2}); audio.setVolume(0.4,{channel=2}) end
 function sound:playGameOver() audio.stop(1); audio.play(audioFiles.gameOver,{channel=3}); audio.setVolume(0.4,{channel=3}) end
-local input={listener=nil}
-local keyCommands={w="up",s="down",a="left",d="right",r="rotate",space="reserve"}
-function input:start(handler)
-    self:stop(); self.listener=function(event)
-        local phase=event.phase=="began" and "down" or event.phase
-        if phase=="down" and keyCommands[event.keyName] then handler(keyCommands[event.keyName]); return true end
-        return false
-    end; Runtime:addEventListener("key",self.listener)
-end
-function input:stop() if self.listener then Runtime:removeEventListener("key",self.listener); self.listener=nil end end
+local input=InputAdapter.new(Runtime,40)
 local platform={}; function platform:exit() native.requestExit() end
 
 local gameView=Renderer.new()
@@ -40,6 +33,7 @@ local game=GameController.new({state=GameState.new(),logic=GameLogic,view=gameVi
 gameView:setCommandHandler(function(command) game:handle(command) end)
 local http=HttpClient.new(); local auth=AuthService.new(http,firebaseConfig)
 app=AppController.new({view=AppView.new(),game=game,auth=auth,
+    profile=ProfileService.new(http,firebaseConfig,auth),
     localBoard=LocalLeaderboard.new(JsonStorage.new("leaderboard.json")),
     globalBoard=GlobalLeaderboard.new(http,firebaseConfig,auth),platform=platform})
 app:start()

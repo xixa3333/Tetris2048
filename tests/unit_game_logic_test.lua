@@ -67,3 +67,21 @@ T.test("GameLogic.move checks completed lines before and after placement", funct
     T.equal(result.cleared.lineCount, 2)
     T.equal(state.score, 20)
 end)
+
+T.test("GameLogic.move places the rotated preview shape before resetting rotation", function()
+    local state = GameState.new()
+    state.currentPiece, state.nextPiece = 1, 1
+    GameLogic.rotateNext(state)
+    local expected = GameLogic.shapeFor(1, 1)
+    local originalPlace = Board.place
+    local captured
+    Board.place = function(grid, shape, row, column)
+        captured = shape
+        return originalPlace(grid, shape, row, column)
+    end
+    local ok, message = pcall(GameLogic.move, state, "left", chooseFirst)
+    Board.place = originalPlace
+    if not ok then error(message) end
+    T.gridEqual(captured, expected)
+    T.equal(state.rotation, 0)
+end)
