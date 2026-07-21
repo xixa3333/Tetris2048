@@ -64,11 +64,33 @@ end
 
 function GameLogic.move(state, direction, random)
     state.grid = Board.slide(state.grid, direction)
-    local cleared = Board.clearCompletedLines(state.grid)
-    state.score = state.score + cleared.lineCount * 10
+
+    -- 第一階段：移動完成後、放入下一塊之前先結算，避免已完成的線
+    -- 佔據空間而造成錯誤的 Game Over。
+    local clearedBeforePlacement = Board.clearCompletedLines(state.grid)
     GameLogic.advanceQueue(state, random)
     local placed = GameLogic.placeRandomPiece(state, random)
-    return {cleared = cleared, placed = placed, gameOver = state.isGameOver}
+
+    -- 第二階段：新方塊可能正好補滿一列或一行，因此放置後再次結算。
+    local clearedAfterPlacement = {lineCount = 0, cells = {}}
+    if placed then
+        clearedAfterPlacement = Board.clearCompletedLines(state.grid)
+    end
+
+    local lineCount = clearedBeforePlacement.lineCount + clearedAfterPlacement.lineCount
+    state.score = state.score + lineCount * 10
+
+    local cells = {}
+    for _, cell in ipairs(clearedBeforePlacement.cells) do cells[#cells + 1] = cell end
+    for _, cell in ipairs(clearedAfterPlacement.cells) do cells[#cells + 1] = cell end
+
+    return {
+        cleared = {lineCount = lineCount, cells = cells},
+        clearedBeforePlacement = clearedBeforePlacement,
+        clearedAfterPlacement = clearedAfterPlacement,
+        placed = placed,
+        gameOver = state.isGameOver
+    }
 end
 
 return GameLogic

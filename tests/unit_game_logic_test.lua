@@ -48,3 +48,22 @@ T.test("GameLogic.move slides, scores a completed line, and advances queue", fun
     T.equal(state.score >= 10, true)
     T.equal(state.currentPiece, 2)
 end)
+
+T.test("GameLogic.move checks completed lines before and after placement", function()
+    local state = GameState.new()
+    state.currentPiece, state.nextPiece = 1, 2
+    local original = Board.clearCompletedLines
+    local calls = 0
+    Board.clearCompletedLines = function()
+        calls = calls + 1
+        return {lineCount = 1, cells = {{row = calls, column = 1}}}
+    end
+    local ok, result = pcall(GameLogic.move, state, "left", chooseFirst)
+    Board.clearCompletedLines = original
+    if not ok then error(result) end
+    T.equal(calls, 2)
+    T.equal(result.clearedBeforePlacement.lineCount, 1)
+    T.equal(result.clearedAfterPlacement.lineCount, 1)
+    T.equal(result.cleared.lineCount, 2)
+    T.equal(state.score, 20)
+end)

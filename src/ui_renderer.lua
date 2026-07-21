@@ -94,6 +94,10 @@ function Renderer:setCommandHandler(handler)
     self.commandHandler = handler
 end
 
+function Renderer:setVisible(visible)
+    self.sceneGroup.isVisible = visible
+end
+
 function Renderer:clearTransient()
     removeGroup(self.animationGroup)
     removeGroup(self.overlayGroup)
@@ -151,7 +155,7 @@ function Renderer:playClearAnimation(cells)
     end
 end
 
-function Renderer:showGameOver(onRestart)
+function Renderer:showGameOver(onHome)
     removeGroup(self.overlayGroup)
     self.overlayGroup = display.newGroup()
     self.sceneGroup:insert(self.overlayGroup)
@@ -166,7 +170,7 @@ function Renderer:showGameOver(onRestart)
         fontSize = 20,
         x = 250,
         y = 230,
-        onPress = function() onRestart(); return true end
+        onPress = function() onHome(); return true end
     })
     self.overlayGroup:insert(button)
 end
