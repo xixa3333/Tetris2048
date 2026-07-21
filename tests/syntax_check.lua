@@ -13,8 +13,10 @@ local files = {
     "../src/firebase_config.lua",
     "../src/global_leaderboard.lua",
     "../src/http_client.lua",
+    "../src/input_adapter.lua",
     "../src/json_storage.lua",
     "../src/local_leaderboard.lua",
+    "../src/profile_service.lua",
     "../src/config.lua",
     "../src/build.settings",
     "test_helper.lua",
@@ -24,6 +26,8 @@ local files = {
     "boundary_test.lua",
     "white_box_test.lua",
     "unit_services_test.lua",
+    "unit_input_adapter_test.lua",
+    "unit_global_leaderboard_test.lua",
     "integration_app_test.lua",
     "run.lua"
 }

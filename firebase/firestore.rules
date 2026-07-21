@@ -8,27 +8,39 @@ service cloud.firestore {
 
     function validScore() {
       return request.resource.data.keys().hasOnly([
-          'uid', 'account', 'score', 'createdAt', 'version'
+          'uid', 'account', 'nickname', 'score', 'updatedAt', 'version'
         ])
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.account == request.auth.token.email
         && request.resource.data.score is int
         && request.resource.data.score >= 0
         && request.resource.data.score <= 1000000000
-        && request.resource.data.createdAt is timestamp
-        && request.resource.data.createdAt <= request.time
+        && request.resource.data.nickname is string
+        && request.resource.data.nickname.size() >= 2
+        && request.resource.data.nickname.size() <= 16
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.updatedAt <= request.time
         && request.resource.data.version is string;
     }
 
-    match /scores/{scoreId} {
+    match /scores/{userId} {
       allow read: if signedIn();
-      allow create: if signedIn() && validScore();
-      allow update, delete: if false;
+      allow create: if signedIn() && userId == request.auth.uid && validScore();
+      allow update: if signedIn() && userId == request.auth.uid && validScore()
+        && request.resource.data.score >= resource.data.score;
+      allow delete: if false;
     }
 
-    match /users/{userId} {
-      allow read, create, update, delete:
-        if signedIn() && request.auth.uid == userId;
+    match /profiles/{userId} {
+      allow read: if signedIn() && request.auth.uid == userId;
+      allow create, update: if signedIn() && request.auth.uid == userId
+        && request.resource.data.keys().hasOnly(['uid', 'account', 'nickname'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.account == request.auth.token.email
+        && request.resource.data.nickname is string
+        && request.resource.data.nickname.size() >= 2
+        && request.resource.data.nickname.size() <= 16;
+      allow delete: if false;
     }
 
     match /{document=**} {

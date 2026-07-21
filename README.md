@@ -6,28 +6,30 @@
 
 請從 [GitHub Releases](https://github.com/xixa3333/Tetris2048/releases/latest) 下載最新版：
 
-- Android：`Tetris2048-Android-v2.0.0.apk`
-- Windows：`Tetris2048-Windows-v2.0.0.zip`，解壓縮後執行 `Tetris2048.exe`
+- Android：`Tetris2048-Android-v2.1.0.apk`
+- Windows：`Tetris2048-Windows-v2.1.0.zip`，解壓縮後執行 `Tetris2048.exe`
 
 APK、EXE 等建置產物只放在 Releases，不提交到原始碼分支。
 
-## v2.0.0 功能
+## 功能
 
 - 封面選單：遊戲開始、遊戲介紹、排行榜、退出遊戲。
-- Game Over 後返回封面，不直接重新開始。
+- Game Over 後返回封面。
 - 每次移動後，在放置新方塊前與放置後各進行一次消除判定。
+- 旋轉預覽後再移動或滑動，會以旋轉後的形狀放下方塊。
 - Firebase Email/Password 帳號系統；電子郵件即唯一帳號。
-- 登入後可查看個人與全球排行榜；每局結束自動新增紀錄。
-- 個人排行榜依帳號隔離，可逐筆刪除本機紀錄。
-- 全球排行榜儲存在 Firestore，只有已登入玩家可讀取與新增分數。
+- 玩家可設定 2～16 字元暱稱，排行榜顯示暱稱。
+- 個人排行榜依帳號隔離，每局新增紀錄且可逐筆刪除。
+- 全球排行榜每個帳號只顯示一筆最高分，並列出所有玩家的最高分。
+- 手機支援向上、下、左、右滑動，效果等同鍵盤 WASD。
 
 ## 操作
 
-| 動作 | 鍵盤／畫面按鈕 |
+| 動作 | 鍵盤／手機 |
 | --- | --- |
-| 上、下、左、右移動 | `W`、`S`、`A`、`D` |
-| 旋轉下一個方塊 | `R` |
-| 保留／交換方塊 | `Space` |
+| 上、下、左、右移動 | `W`、`S`、`A`、`D`／四方向滑動 |
+| 旋轉下一個方塊 | `R`／旋轉按鈕 |
+| 保留／交換方塊 | `Space`／保留按鈕 |
 
 每完成一條橫列或直行得 10 分。
 
@@ -45,12 +47,13 @@ tests/      單元、整合、邊緣、白盒與架構測試
 
 核心分層：
 
-- `board.lua`、`game_logic.lua`：純遊戲規則，不依賴 Solar2D。
+- `board.lua`、`game_logic.lua`：純遊戲規則。
 - `game_controller.lua`：遊戲回合與動畫時序。
-- `app_controller.lua`：封面、登入、排行榜等畫面流程。
-- `auth_service.lua`、排行榜模組：Firebase／本機資料服務。
+- `app_controller.lua`：封面、登入、暱稱及排行榜流程。
+- `input_adapter.lua`：鍵盤與手機滑動手勢轉換。
+- `auth_service.lua`、`profile_service.lua`、排行榜模組：Firebase／本機資料服務。
 - `ui_renderer.lua`、`app_view.lua`：Solar2D 顯示層。
-- `main.lua`：唯一的依賴組裝入口。
+- `main.lua`：依賴組裝入口。
 
 ## 測試
 
@@ -60,7 +63,7 @@ npm install
 npm test
 ```
 
-測試涵蓋遊戲規則、雙階段消除、控制器整合、登入驗證、排行榜隔離與刪除、邊緣條件、白盒分支、語法及架構限制。
+測試涵蓋遊戲規則、雙階段消除、旋轉放置、四方向滑動、登入與暱稱驗證、排行榜最高分去重、帳號隔離、邊緣條件、白盒分支、語法及架構限制。
 
 ## 後端
 

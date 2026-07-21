@@ -68,8 +68,13 @@ function GameLogic.move(state, direction, random)
     -- 第一階段：移動完成後、放入下一塊之前先結算，避免已完成的線
     -- 佔據空間而造成錯誤的 Game Over。
     local clearedBeforePlacement = Board.clearCompletedLines(state.grid)
+    -- rotation 描述的是「下一個要放下的方塊」。提升佇列前先保存，
+    -- 否則 advanceQueue() 的初始化會讓玩家剛選擇的旋轉角度遺失。
+    local placementRotation = state.rotation
     GameLogic.advanceQueue(state, random)
+    state.rotation = placementRotation
     local placed = GameLogic.placeRandomPiece(state, random)
+    state.rotation = 0
 
     -- 第二階段：新方塊可能正好補滿一列或一行，因此放置後再次結算。
     local clearedAfterPlacement = {lineCount = 0, cells = {}}

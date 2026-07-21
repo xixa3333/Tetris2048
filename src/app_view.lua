@@ -27,7 +27,7 @@ end
 function AppView:showCover(actions,user)
     local g=self:_screen("TETRIS 2048")
     text(g,"方塊 × 滑動 × 消除",250,155,20,{0.5,0.9,1})
-    if user then text(g,"已登入："..user.account,250,205,16) end
+    if user then text(g,"玩家："..(user.nickname or user.account),250,205,16) end
     button(g,"遊戲開始",250,300,actions.start); button(g,"遊戲介紹",250,385,actions.intro)
     button(g,"排行榜",250,470,actions.leaderboard); button(g,"退出遊戲",250,555,actions.exit)
 end
@@ -46,14 +46,23 @@ function AppView:showAuth(actions)
     button(g,"返回",250,590,actions.back)
 end
 function AppView:setStatus(value) if self.status then self.status.text=value end end
+function AppView:showNickname(save,back)
+    local g=self:_screen("設定暱稱")
+    text(g,"排行榜會顯示此暱稱（2～16 個字元）",250,200,18)
+    local nickname=native.newTextField(250,300,360,48); nickname.placeholder="玩家暱稱"
+    self.fields={nickname}; self.status=text(g,"",250,370,16,{1,0.45,0.45})
+    button(g,"儲存",250,465,function() save(nickname.text) end)
+    button(g,"返回",250,555,back)
+end
 function AppView:showLeaderboard(title,records,actions,canDelete)
     local g=self:_screen(title)
     button(g,"個人",125,165,actions.localTab,130); button(g,"全球",275,165,actions.globalTab,130)
-    button(g,"登出",425,165,actions.logout,100)
+    button(g,"暱稱",405,165,actions.nickname,85)
+    button(g,"登出",465,225,actions.logout,65)
     if #records==0 then text(g,"目前沒有紀錄",250,300,20) end
     for i=1,math.min(#records,8) do
         local record=records[i]; local y=230+i*55
-        text(g,string.format("%d. %s   %d 分",i,record.account or "玩家",record.score),215,y,17)
+        text(g,string.format("%d. %s   %d 分",i,record.nickname or record.account or "玩家",record.score),215,y,17)
         if canDelete then button(g,"刪除",430,y,function() actions.delete(record.id) end,75) end
     end
     button(g,"返回封面",250,770,actions.back)
