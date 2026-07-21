@@ -4,12 +4,9 @@ settings = {
         supported = { "portrait", "portraitUpsideDown" }, -- 支持的方向
     },
     android = {
-        versionCode = "1", -- Android 版本代碼
+        versionCode = "2", -- Android 內部版本；每次發布必須遞增
         usesPermissions = {
             "android.permission.INTERNET", -- 使用網路權限
-        },
-	mavenRepository = {
-                "https://repo.maven.apache.org/maven2/"
         },
     },
     iphone = {
