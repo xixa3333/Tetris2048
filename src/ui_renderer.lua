@@ -1,63 +1,179 @@
 local constants = require("constants")
+local Board = require("board")
 local movieclip = require("movieclip")
 local widget = require("widget")
 
-local M = {}
+-- Solar2D 顯示層。所有顯示物件都歸屬於明確的 display group，
+-- 重新開始時只要銷毀 transient groups，就不會遺留動畫或文字。
+local Renderer = {}
+Renderer.__index = Renderer
 
-function M.updateImage(imageTable, newPath)
-    local x, y = imageTable.x, imageTable.y
-    imageTable:removeSelf()
-    imageTable = display.newImageRect(newPath, 35, 35)
-    imageTable.x, imageTable.y = x, y
-    imageTable.ImagePath = newPath
-    return imageTable
+local CELL_SIZE = 35
+local EMPTY_IMAGE = "image/space.png"
+
+local function removeGroup(group)
+    if group and group.removeSelf then group:removeSelf() end
 end
 
-function M.GenerateBlocks(Image, x, y, state)
-    local tetro = constants.tetrominoes[state.BlockNum]
-    for i = 1, #tetro do
-        for j = 1, #tetro[i] do
-            if (tetro[i][j] ~= 0) then
-                local path = constants.BlockImage[tetro[i][j]]
-                if (state.rotate == 0) then
-                    Image[i + y][j + x] = M.updateImage(Image[i + y][j + x], path)
-                elseif (state.rotate == 1) then
-                    Image[j + y][#tetro - i + 1 + x] = M.updateImage(Image[j + y][#tetro - i + 1 + x], path)
-                elseif (state.rotate == 2) then
-                    Image[#tetro - i + 1 + y][#tetro[i] - j + 1 + x] = M.updateImage(Image[#tetro - i + 1 + y][#tetro[i] - j + 1 + x], path)
-                elseif (state.rotate == 3) then
-                    Image[j + y][i + x] = M.updateImage(Image[j + y][i + x], path)
-                end
+local function replaceImage(group, oldImage, path)
+    local x, y = oldImage.x, oldImage.y
+    oldImage:removeSelf()
+    local image = display.newImageRect(group, path, CELL_SIZE, CELL_SIZE)
+    image.x, image.y = x, y
+    image.path = path
+    return image
+end
+
+local function createImageGrid(group, size, originX, originY)
+    local images = {}
+    for row = 1, size do
+        images[row] = {}
+        for column = 1, size do
+            local image = display.newImageRect(group, EMPTY_IMAGE, CELL_SIZE, CELL_SIZE)
+            image.x = originX + column * CELL_SIZE
+            image.y = originY + row * CELL_SIZE
+            image.path = EMPTY_IMAGE
+            images[row][column] = image
+        end
+    end
+    return images
+end
+
+function Renderer.new()
+    local self = setmetatable({}, Renderer)
+    self.sceneGroup = display.newGroup()
+    self.boardGroup = display.newGroup()
+    self.previewGroup = display.newGroup()
+    self.controlsGroup = display.newGroup()
+    self.sceneGroup:insert(self.boardGroup)
+    self.sceneGroup:insert(self.previewGroup)
+    self.sceneGroup:insert(self.controlsGroup)
+
+    self.boardImages = createImageGrid(self.boardGroup, constants.ROWS, 50, 320)
+    self.nextImages = createImageGrid(self.previewGroup, 4, 300, 150)
+    self.reserveImages = createImageGrid(self.previewGroup, 4, 20, 150)
+
+    self.scoreLabel = display.newText(self.sceneGroup, "Score:", 400, 20, native.systemFont, 20)
+    self.scoreLabel:setTextColor(1, 1, 0)
+    self.scoreText = display.newText(self.sceneGroup, "0", 450, 20, native.systemFont, 20)
+    self.reserveLabel = display.newText(self.sceneGroup, "Reserve:", 80, 150, native.systemFont, 20)
+    self.nextLabel = display.newText(self.sceneGroup, "Next:", 340, 150, native.systemFont, 20)
+
+    self:createControls()
+    self:clearTransient()
+    return self
+end
+
+function Renderer:createControls()
+    local definitions = {
+        {label = "W", command = "up", x = 250, y = 730},
+        {label = "A", command = "left", x = 200, y = 780},
+        {label = "S", command = "down", x = 250, y = 780},
+        {label = "D", command = "right", x = 300, y = 780},
+        {label = "旋轉", command = "rotate", x = 100, y = 780},
+        {label = "保留", command = "reserve", x = 400, y = 780}
+    }
+    for _, definition in ipairs(definitions) do
+        local button = widget.newButton({
+            defaultFile = "image/explode1.png",
+            overFile = "image/explode3.png",
+            label = definition.label,
+            fontSize = 20,
+            x = definition.x,
+            y = definition.y,
+            onPress = function()
+                if self.commandHandler then self.commandHandler(definition.command) end
+                return true
+            end
+        })
+        self.controlsGroup:insert(button)
+    end
+end
+
+function Renderer:setCommandHandler(handler)
+    self.commandHandler = handler
+end
+
+function Renderer:clearTransient()
+    removeGroup(self.animationGroup)
+    removeGroup(self.overlayGroup)
+    self.animationGroup = display.newGroup()
+    self.overlayGroup = display.newGroup()
+    self.sceneGroup:insert(self.animationGroup)
+    self.sceneGroup:insert(self.overlayGroup)
+    self.controlsGroup.isVisible = true
+end
+
+local function renderShape(group, images, piece, rotation)
+    for row = 1, 4 do
+        for column = 1, 4 do
+            images[row][column] = replaceImage(group, images[row][column], EMPTY_IMAGE)
+        end
+    end
+    if not piece then return end
+    local shape = Board.rotate(constants.tetrominoes[piece], rotation or 0)
+    for row = 1, #shape do
+        for column = 1, #shape[row] do
+            if shape[row][column] ~= 0 then
+                images[row][column] = replaceImage(group, images[row][column], constants.BlockImage[shape[row][column]])
             end
         end
     end
 end
 
-function M.DeleteBlocks(Image, Len, state)
-    for i = 1, Len do
-        for j = 1, Len do
-            Image[i][j] = M.updateImage(Image[i][j], "image/space.png")
-            if(Len == 10) then state.MainGrid[i][j] = 0 end
+function Renderer:render(state)
+    for row = 1, constants.ROWS do
+        for column = 1, constants.COLS do
+            local value = state.grid[row][column]
+            local path = value == 0 and EMPTY_IMAGE or constants.BlockImage[value]
+            if self.boardImages[row][column].path ~= path then
+                self.boardImages[row][column] = replaceImage(self.boardGroup, self.boardImages[row][column], path)
+            end
         end
+    end
+    renderShape(self.previewGroup, self.nextImages, state.nextPiece, state.rotation)
+    renderShape(self.previewGroup, self.reserveImages, state.reservedPiece, 0)
+    self.scoreText.text = tostring(state.score)
+end
+
+function Renderer:playClearAnimation(cells)
+    for _, cell in ipairs(cells) do
+        local image = self.boardImages[cell.row][cell.column]
+        local animation = movieclip.newAnim({
+            "image/explode1.png", "image/explode2.png", "image/explode3.png",
+            "image/explode4.png", "image/explode5.png", "image/explode6.png",
+            "image/explode7.png", "image/explode8.png", "image/explode9.png"
+        })
+        self.animationGroup:insert(animation)
+        animation.x, animation.y = image.x, image.y
+        animation.width, animation.height = CELL_SIZE, CELL_SIZE
+        animation:play({startFrame = 1, endFrame = 9, loop = 1, remove = true})
     end
 end
 
-function M.PlayExplosion(x, y, state)
-    local anim = movieclip.newAnim({
-        "image/explode1.png", "image/explode2.png", "image/explode3.png",
-        "image/explode4.png", "image/explode5.png", "image/explode6.png",
-        "image/explode7.png", "image/explode8.png", "image/explode9.png"
+function Renderer:showGameOver(onRestart)
+    removeGroup(self.overlayGroup)
+    self.overlayGroup = display.newGroup()
+    self.sceneGroup:insert(self.overlayGroup)
+    self.controlsGroup.isVisible = false
+
+    local title = display.newText(self.overlayGroup, "GAME OVER", 250, 70, native.systemFont, 50)
+    title:setTextColor(1, 0, 0)
+    local button = widget.newButton({
+        defaultFile = "image/explode1.png",
+        overFile = "image/explode3.png",
+        label = "重新開始",
+        fontSize = 20,
+        x = 250,
+        y = 230,
+        onPress = function() onRestart(); return true end
     })
-    
-    -- 設定動畫屬性
-    anim.x, anim.y = x, y
-    anim.width, anim.height = 35, 35
-    
-    -- 記錄至 state 表中以利後續清理
-    state.animTable[#state.animTable + 1] = anim
-    
-    -- 啟動動畫 (播放完後自我移除)
-    anim:play({ startFrame = 1, endFrame = 9, loop = 1, remove = true })
+    self.overlayGroup:insert(button)
 end
 
-return M
+function Renderer:destroy()
+    removeGroup(self.sceneGroup)
+    self.sceneGroup = nil
+end
+
+return Renderer
