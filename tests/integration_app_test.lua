@@ -17,7 +17,7 @@ local function build(signedIn)
     function view:showAuth(actions) self.screen="auth";self.actions=actions end
     function view:showNickname(save,back) self.screen="nickname";self.saveNickname=save;self.back=back end
     function view:showPasswordChange(save,back) self.screen="password";self.savePassword=save;self.back=back end
-    function view:showLeaderboard(title,records,actions) self.screen=title;self.records=records;self.actions=actions end
+    function view:showLeaderboard(title,model,actions) self.screen=title;self.model=model;self.actions=actions end
     function view:showLoading() self.screen="loading" end
     function view:showError() self.screen="error" end
     function view:setStatus(value) self.status=value end
@@ -30,7 +30,7 @@ local function build(signedIn)
     function localBoard:listAll() return self.records end
     function localBoard:add(uid,account,score) self.records[#self.records+1]={id=tostring(#self.records+1),uid=uid,account=account,score=score} end
     function localBoard:remove(uid,id) self.removed={uid=uid,id=id}; return true end
-    local global={adds=0}; function global:list(callback) callback(true,{}) end
+    local global={adds=0,records={}}; function global:list(callback) callback(true,self.records) end
     function global:add(_,callback) self.adds=self.adds+1;callback(true) end
     function global:updateNickname(callback) callback(true) end
     local profile={}
@@ -73,9 +73,24 @@ T.test("Local leaderboard ignores zero and shows scores from every local account
         {id="a1",uid="a",account="玩家A",score=40},
         {id="b1",uid="b",account="玩家B",score=20}}
     app:showLocalLeaderboard()
-    T.equal(view.screen,"本機排行榜"); T.equal(#view.records,2)
+    T.equal(view.screen,"本機排行榜"); T.equal(#view.model.items,2)
     app:onGameOver(0)
     T.equal(#localBoard.records,2); T.equal(global.adds,1)
-    view.actions.delete(view.records[2])
+    view.actions.delete(view.model.items[2])
     T.equal(localBoard.removed.uid,"b"); T.equal(localBoard.removed.id,"b1")
+end)
+
+T.test("Local and global leaderboards navigate ten records per page",function()
+    local app,view,_,localBoard,global=build(true)
+    for index=1,21 do
+        localBoard.records[index]={id=tostring(index),uid="u",account="本機",score=100-index}
+        global.records[index]={id=tostring(index),uid=tostring(index),nickname="全球",score=100-index}
+    end
+    app:showLocalLeaderboard(1)
+    T.equal(#view.model.items,10); T.equal(view.model.firstRank,1); T.equal(view.model.totalPages,3)
+    view.actions.next(); T.equal(view.model.page,2); T.equal(view.model.firstRank,11)
+    view.actions.next(); T.equal(#view.model.items,1); T.equal(view.model.firstRank,21)
+    view.actions.globalTab(); T.equal(view.screen,"全球排行榜"); T.equal(view.model.page,1)
+    view.actions.next(); T.equal(view.model.page,2); T.equal(#view.model.items,10)
+    view.actions.previous(); T.equal(view.model.page,1)
 end)
