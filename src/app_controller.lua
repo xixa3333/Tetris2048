@@ -81,11 +81,9 @@ function AppController:_actions()
         logout=function() self.auth:signOut(); self:showCover() end,back=function() self:showCover() end}
 end
 function AppController:showLocalLeaderboard()
-    self.screen="localLeaderboard"; local user=self.auth:currentUser(); local actions=self:_actions()
-    actions.delete=function(id) self.localBoard:remove(user.uid,id); self:showLocalLeaderboard() end
-    local records=self.localBoard:list(user.uid)
-    for _,record in ipairs(records) do record.nickname=user.nickname end
-    self.view:showLeaderboard("個人排行榜",records,actions,true)
+    self.screen="localLeaderboard"; local actions=self:_actions()
+    actions.delete=function(record) self.localBoard:remove(record.uid,record.id); self:showLocalLeaderboard() end
+    self.view:showLeaderboard("本機排行榜",self.localBoard:listAll(),actions,true)
 end
 function AppController:showGlobalLeaderboard()
     self.screen="globalLeaderboard"; self.view:showLoading("讀取全球排行榜…")
@@ -96,7 +94,7 @@ function AppController:showGlobalLeaderboard()
 end
 function AppController:onGameOver(score)
     local user=self.auth:currentUser(); if not user then return end
-    self.localBoard:add(user.uid,user.nickname,score,self.clock())
+    if (tonumber(score) or 0)>0 then self.localBoard:add(user.uid,user.nickname,score,self.clock()) end
     self.globalBoard:add(score,function() end)
 end
 function AppController:onSuspend()

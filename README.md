@@ -6,20 +6,20 @@
 
 請從 [GitHub Releases](https://github.com/xixa3333/Tetris2048/releases/latest) 下載最新版：
 
-- Android：`Tetris2048-Android-v2.2.0.apk`
-- Windows：`Tetris2048-Windows-v2.2.0.zip`，解壓縮後執行 `Tetris2048.exe`
+- Android：`Tetris2048-Android-v2.2.1.apk`
+- Windows：`Tetris2048-Windows-v2.2.1.zip`，解壓縮後執行 `Tetris2048.exe`
 
 APK、EXE 等建置產物只放在 Releases，不提交到原始碼分支。
 
 ## 功能
 
 - 封面選單：遊戲開始、遊戲介紹、排行榜、退出遊戲。
-- Game Over 後返回封面。
+- Game Over 後可重新開始或返回封面，兩個按鈕垂直排列且不遮擋預覽與棋盤。
 - 每次移動後，在放置新方塊前與放置後各進行一次消除判定。
 - 旋轉預覽後再移動或滑動，會以旋轉後的形狀放下方塊。
 - Firebase Email/Password 帳號系統；電子郵件即唯一帳號。
 - 玩家可設定 2～16 字元暱稱，排行榜顯示暱稱。
-- 個人排行榜依帳號隔離，每局新增紀錄且可逐筆刪除。
+- 本機排行榜彙整這台裝置上所有帳號的正分紀錄，0 分不計入，並可逐筆刪除。
 - 全球排行榜每個帳號只顯示一筆最高分，並列出所有玩家的最高分。
 - 手機支援向上、下、左、右滑動，效果等同鍵盤 WASD。
 - 全部選項使用明亮粗體文字，提高手機戶外與低亮度環境可讀性。

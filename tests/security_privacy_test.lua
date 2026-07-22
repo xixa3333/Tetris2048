@@ -14,3 +14,9 @@ T.test("Security boundary rejects short password before network",function()
     local auth=AuthService.new(http,{apiKey="key"}); auth.session={idToken="id"}
     auth:changePassword("123",function(ok) T.equal(ok,false) end); T.equal(http.calls,0)
 end)
+T.test("Privacy boundary keeps credentials out of shared local score records",function()
+    local LocalLeaderboard=require("local_leaderboard"); local saved={}
+    local board=LocalLeaderboard.new({load=function() return saved end,save=function(_,data) saved=data end})
+    local record=board:add("uid","暱稱",10,1)
+    T.equal(record.account,"暱稱"); T.equal(record.password,nil); T.equal(record.refreshToken,nil)
+end)

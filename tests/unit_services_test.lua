@@ -9,7 +9,7 @@ local function memoryStorage()
     return storage
 end
 
-T.test("Local leaderboard isolates accounts, sorts scores, and deletes one record",function()
+T.test("Local leaderboard aggregates local accounts, sorts scores, and deletes one record",function()
     local board=LocalLeaderboard.new(memoryStorage())
     local low=board:add("a","a@example.com",10,100)
     board:add("a","a@example.com",30,101)
@@ -18,11 +18,15 @@ T.test("Local leaderboard isolates accounts, sorts scores, and deletes one recor
     T.equal(#records,2); T.equal(records[1].score,30)
     T.equal(board:remove("a",low.id),true); T.equal(#board:list("a"),1)
     T.equal(#board:list("b"),1)
+    local all=board:listAll()
+    T.equal(#all,2); T.equal(all[1].account,"b@example.com"); T.equal(all[1].uid,"b")
 end)
 
-T.test("Local leaderboard clamps negative and decimal scores",function()
+T.test("Local leaderboard ignores zero scores and floors positive decimals",function()
     local board=LocalLeaderboard.new(memoryStorage())
-    T.equal(board:add("u","u@example.com",-3.5,1).score,0)
+    T.equal(board:add("u","u@example.com",-3.5,1),nil)
+    T.equal(board:add("u","u@example.com",0,2),nil)
+    T.equal(#board:listAll(),0)
     T.equal(board:add("u","u@example.com",12.9,2).score,12)
 end)
 
