@@ -24,7 +24,7 @@ function read(path) {
 
 test("Architecture: pure rule modules do not depend on Solar2D globals", () => {
   const forbidden = ["display.", "audio.", "timer.", "Runtime:", 'require("widget")'];
-  for (const path of ["../src/board.lua", "../src/game_state.lua", "../src/game_logic.lua", "../src/pagination.lua"]) {
+  for (const path of ["../src/board.lua", "../src/game_state.lua", "../src/game_logic.lua", "../src/pagination.lua", "../src/game_guide.lua"]) {
     const contents = read(path);
     for (const token of forbidden) {
       assert(!contents.includes(token), `${path} contains forbidden dependency ${token}`);
@@ -60,6 +60,20 @@ test("Architecture: Firebase configuration contains no password or private key",
   const contents = read("../src/firebase_config.lua").toLowerCase();
   assert(!contents.includes("password"), "Firebase configuration contains password material");
   assert(!contents.includes("private_key"), "Firebase configuration contains a private key");
+});
+
+test("Documentation: README keeps download badge and ordered player guide", () => {
+  const contents = read("../README.md");
+  assert(contents.includes("img.shields.io/github/downloads/xixa3333/Tetris2048/total"), "download badge is missing");
+  assert(contents.includes('docs/images/gameplay.png'), "gameplay screenshot is missing from README");
+  assert(fs.existsSync("../docs/images/gameplay.png"), "gameplay screenshot file does not exist");
+  const headings = ["## 遊戲規則", "## 得分機制", "## 遊玩方式", "## 排行榜"];
+  let previous = -1;
+  for (const heading of headings) {
+    const position = contents.indexOf(heading);
+    assert(position > previous, `${heading} is missing or out of order`);
+    previous = position;
+  }
 });
 
 console.log(`Architecture result: ${passed} passed, ${failed} failed\n`);

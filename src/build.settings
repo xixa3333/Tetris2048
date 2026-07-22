@@ -4,7 +4,7 @@ settings = {
         supported = { "portrait", "portraitUpsideDown" }, -- 支持的方向
     },
     android = {
-        versionCode = "7", -- Android 內部版本；每次發布必須遞增
+        versionCode = "8", -- Android 內部版本；每次發布必須遞增
         usesPermissions = {
             "android.permission.INTERNET", -- 使用網路權限
         },

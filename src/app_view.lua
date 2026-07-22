@@ -1,4 +1,5 @@
 local widget=require("widget")
+local gameGuide=require("game_guide")
 local AppView={}; AppView.__index=AppView
 local BRIGHT={1,1,1}; local ACCENT={1,0.9,0.25}; local CYAN={0.45,0.95,1}
 local function remove(o) if o and o.removeSelf then o:removeSelf() end end
@@ -35,8 +36,12 @@ function AppView:showCover(actions,user)
 end
 function AppView:showIntro(back)
     local g=self:_screen("遊戲介紹")
-    text(g,"W/A/S/D 或手機四方向滑動\nR／旋轉按鈕旋轉下一塊\nSpace／保留按鈕交換方塊\n\n每次移動後會在放置方塊前後判定消除，\n每消除一條得 10 分。",250,350,20,BRIGHT)
-    button(g,"返回",250,680,back)
+    local tops={145,285,425,565}
+    for index,section in ipairs(gameGuide) do
+        text(g,section.title,250,tops[index],20,ACCENT)
+        text(g,section.body,250,tops[index]+62,16,BRIGHT)
+    end
+    button(g,"返回",250,790,back,150,48)
 end
 function AppView:showAuth(actions)
     local g=self:_screen("登入排行榜")
