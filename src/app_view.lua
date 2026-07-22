@@ -68,13 +68,13 @@ function AppView:showPasswordChange(save,back)
 end
 function AppView:showLeaderboard(title,records,actions,canDelete)
     local g=self:_screen(title)
-    button(g,"個人",80,150,actions.localTab,100); button(g,"全球",190,150,actions.globalTab,100)
+    button(g,"本機",80,150,actions.localTab,100); button(g,"全球",190,150,actions.globalTab,100)
     button(g,"暱稱",300,150,actions.nickname,100); button(g,"密碼",410,150,actions.password,100)
     if #records==0 then text(g,"目前沒有紀錄",250,290,20,BRIGHT) end
     for i=1,math.min(#records,8) do
         local record=records[i]; local y=205+i*58
         text(g,string.format("%d. %s   %d 分",i,record.nickname or record.account or "玩家",record.score),205,y,18,BRIGHT)
-        if canDelete then button(g,"刪除",440,y,function() actions.delete(record.id) end,75) end
+        if canDelete then button(g,"刪除",440,y,function() actions.delete(record) end,75) end
     end
     button(g,"登出",140,790,actions.logout,150); button(g,"主畫面",350,790,actions.back,170)
 end

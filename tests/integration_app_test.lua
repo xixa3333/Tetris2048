@@ -27,9 +27,9 @@ local function build(signedIn)
     function game:pause() self.pauses=(self.pauses or 0)+1 end
     function game:resume() self.resumes=(self.resumes or 0)+1 end
     local localBoard={records={}}
-    function localBoard:list() return self.records end
-    function localBoard:add(_,account,score) self.records[#self.records+1]={id="1",account=account,score=score} end
-    function localBoard:remove() return true end
+    function localBoard:listAll() return self.records end
+    function localBoard:add(uid,account,score) self.records[#self.records+1]={id=tostring(#self.records+1),uid=uid,account=account,score=score} end
+    function localBoard:remove(uid,id) self.removed={uid=uid,id=id}; return true end
     local global={adds=0}; function global:list(callback) callback(true,{}) end
     function global:add(_,callback) self.adds=self.adds+1;callback(true) end
     function global:updateNickname(callback) callback(true) end
@@ -51,7 +51,7 @@ T.test("Auth screen exposes forgot password and signed-in account can change pas
     T.equal(view.status,"sent")
     view.actions.login("u@example.com","123456"); view.actions.password()
     T.equal(view.screen,"password"); view.savePassword("654321")
-    T.equal(view.screen,"個人排行榜")
+    T.equal(view.screen,"本機排行榜")
 end)
 
 T.test("App resume restores the game and falls back to cover on recovery failure",function()
@@ -62,7 +62,20 @@ end)
 
 T.test("Leaderboard requires login and records every signed-in game",function()
     local app,view,_,localBoard,global=build(false); app:openLeaderboard(); T.equal(view.screen,"auth")
-    view.actions.login("u@example.com","123456"); T.equal(view.screen,"個人排行榜")
+    view.actions.login("u@example.com","123456"); T.equal(view.screen,"本機排行榜")
     app:onGameOver(80); app:onGameOver(20)
     T.equal(#localBoard.records,2); T.equal(global.adds,2)
+end)
+
+T.test("Local leaderboard ignores zero and shows scores from every local account",function()
+    local app,view,_,localBoard,global=build(true)
+    localBoard.records={
+        {id="a1",uid="a",account="玩家A",score=40},
+        {id="b1",uid="b",account="玩家B",score=20}}
+    app:showLocalLeaderboard()
+    T.equal(view.screen,"本機排行榜"); T.equal(#view.records,2)
+    app:onGameOver(0)
+    T.equal(#localBoard.records,2); T.equal(global.adds,1)
+    view.actions.delete(view.records[2])
+    T.equal(localBoard.removed.uid,"b"); T.equal(localBoard.removed.id,"b1")
 end)

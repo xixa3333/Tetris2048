@@ -2,6 +2,7 @@ local constants = require("constants")
 local Board = require("board")
 local movieclip = require("movieclip")
 local widget = require("widget")
+local gameOverLayout = require("game_over_layout")
 
 -- Solar2D 顯示層。所有顯示物件都歸屬於明確的 display group，
 -- 重新開始時只要銷毀 transient groups，就不會遺留動畫或文字。
@@ -184,8 +185,10 @@ function Renderer:showGameOver(onRestart, onHome)
         font = native.systemFontBold,
         labelColor = {default = {1,1,1}, over = {1,1,0.3}},
         fontSize = 20,
-        x = 165,
-        y = 230,
+        x = gameOverLayout.restart.x,
+        y = gameOverLayout.restart.y,
+        width = gameOverLayout.restart.width,
+        height = gameOverLayout.restart.height,
         onPress = function() onRestart(); return true end
     })
     self.overlayGroup:insert(restartButton)
@@ -193,7 +196,8 @@ function Renderer:showGameOver(onRestart, onHome)
         defaultFile = "image/explode1.png", overFile = "image/explode3.png",
         label = "回到主畫面", font = native.systemFontBold, fontSize = 20,
         labelColor = {default = {1,1,1}, over = {1,1,0.3}},
-        x = 340, y = 230,
+        x = gameOverLayout.home.x, y = gameOverLayout.home.y,
+        width = gameOverLayout.home.width, height = gameOverLayout.home.height,
         onPress = function() onHome(); return true end
     })
     self.overlayGroup:insert(homeButton)
