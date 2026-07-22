@@ -21,4 +21,13 @@ function HttpClient:request(method, url, body, headers, callback)
     end, params)
 end
 
+function HttpClient:requestForm(method, url, formBody, callback)
+    local params={headers={["Content-Type"]="application/x-www-form-urlencoded"},body=formBody}
+    self.network.request(url,method,function(event)
+        local decoded
+        if event.response and event.response~="" then pcall(function() decoded=json.decode(event.response) end) end
+        callback(not event.isError and event.status>=200 and event.status<300,decoded or {},event.status)
+    end,params)
+end
+
 return HttpClient

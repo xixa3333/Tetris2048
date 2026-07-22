@@ -66,6 +66,7 @@ end
 
 function Renderer:createControls()
     local definitions = {
+        {label = "主畫面", command = "home", x = 70, y = 45, width = 120},
         {label = "W", command = "up", x = 250, y = 730},
         {label = "A", command = "left", x = 200, y = 780},
         {label = "S", command = "down", x = 250, y = 780},
@@ -78,7 +79,10 @@ function Renderer:createControls()
             defaultFile = "image/explode1.png",
             overFile = "image/explode3.png",
             label = definition.label,
+            font = native.systemFontBold,
             fontSize = 20,
+            labelColor = {default = {1,1,1}, over = {1,1,0.3}},
+            width = definition.width,
             x = definition.x,
             y = definition.y,
             onPress = function()
@@ -140,6 +144,16 @@ function Renderer:render(state)
     self.scoreText.text = tostring(state.score)
 end
 
+function Renderer:recover(state)
+    -- Android 從背景回來時 GPU texture 可能已被系統回收；強制重建圖片，
+    -- 避免 display object 還在但內容全黑。
+    for row=1,constants.ROWS do for column=1,constants.COLS do self.boardImages[row][column].path=nil end end
+    for row=1,4 do for column=1,4 do
+        self.nextImages[row][column].path=nil; self.reserveImages[row][column].path=nil
+    end end
+    self:render(state)
+end
+
 function Renderer:playClearAnimation(cells)
     for _, cell in ipairs(cells) do
         local image = self.boardImages[cell.row][cell.column]
@@ -155,7 +169,7 @@ function Renderer:playClearAnimation(cells)
     end
 end
 
-function Renderer:showGameOver(onHome)
+function Renderer:showGameOver(onRestart, onHome)
     removeGroup(self.overlayGroup)
     self.overlayGroup = display.newGroup()
     self.sceneGroup:insert(self.overlayGroup)
@@ -163,16 +177,26 @@ function Renderer:showGameOver(onHome)
 
     local title = display.newText(self.overlayGroup, "GAME OVER", 250, 70, native.systemFont, 50)
     title:setTextColor(1, 0, 0)
-    local button = widget.newButton({
+    local restartButton = widget.newButton({
         defaultFile = "image/explode1.png",
         overFile = "image/explode3.png",
         label = "重新開始",
+        font = native.systemFontBold,
+        labelColor = {default = {1,1,1}, over = {1,1,0.3}},
         fontSize = 20,
-        x = 250,
+        x = 165,
         y = 230,
+        onPress = function() onRestart(); return true end
+    })
+    self.overlayGroup:insert(restartButton)
+    local homeButton = widget.newButton({
+        defaultFile = "image/explode1.png", overFile = "image/explode3.png",
+        label = "回到主畫面", font = native.systemFontBold, fontSize = 20,
+        labelColor = {default = {1,1,1}, over = {1,1,0.3}},
+        x = 340, y = 230,
         onPress = function() onHome(); return true end
     })
-    self.overlayGroup:insert(button)
+    self.overlayGroup:insert(homeButton)
 end
 
 function Renderer:destroy()

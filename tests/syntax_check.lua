@@ -16,7 +16,9 @@ local files = {
     "../src/input_adapter.lua",
     "../src/json_storage.lua",
     "../src/local_leaderboard.lua",
+    "../src/lifecycle_adapter.lua",
     "../src/profile_service.lua",
+    "../src/session_store.lua",
     "../src/config.lua",
     "../src/build.settings",
     "test_helper.lua",
@@ -28,6 +30,9 @@ local files = {
     "unit_services_test.lua",
     "unit_input_adapter_test.lua",
     "unit_global_leaderboard_test.lua",
+    "unit_auth_session_test.lua",
+    "integration_lifecycle_test.lua",
+    "security_privacy_test.lua",
     "integration_app_test.lua",
     "run.lua"
 }

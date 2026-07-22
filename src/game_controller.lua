@@ -21,7 +21,7 @@ function GameController.new(dependencies)
         random = dependencies.random or math.random,
         onGameOver = dependencies.onGameOver,
         onHome = dependencies.onHome,
-        pendingTimers = {}
+        pendingTimers = {}, scoreRecorded = false, active = false
     }, GameController)
 end
 
@@ -44,6 +44,8 @@ function GameController:start()
     if self.input.stop then self.input:stop() end
     self.view:clearTransient()
     self.logic.start(self.state, self.random)
+    self.scoreRecorded = false
+    self.active = true
     self.view:render(self.state)
     if self.sound.playBackground then self.sound:playBackground() end
     if self.input.start then self.input:start(function(command) self:handle(command) end) end
@@ -53,18 +55,31 @@ function GameController:restart()
     self:start()
 end
 
+function GameController:recordScoreOnce()
+    if not self.scoreRecorded and self.onGameOver then
+        self.scoreRecorded = true
+        self.onGameOver(self.state.score)
+    end
+end
+
+function GameController:returnHome()
+    self:cancelPendingWork()
+    if self.input.stop then self.input:stop() end
+    self:recordScoreOnce()
+    self.active = false
+    if self.onHome then self.onHome() end
+end
+
 function GameController:finishGame()
     self.state.isBusy = false
     if self.input.stop then self.input:stop() end
     if self.sound.playGameOver then self.sound:playGameOver() end
-    if self.onGameOver then self.onGameOver(self.state.score) end
-    self.view:showGameOver(function()
-        self:cancelPendingWork()
-        if self.onHome then self.onHome() end
-    end)
+    self:recordScoreOnce()
+    self.view:showGameOver(function() self:restart() end, function() self:returnHome() end)
 end
 
 function GameController:handle(command)
+    if command == "home" then self:returnHome(); return true end
     if self.state.isBusy or self.state.isGameOver then return false end
 
     if command == "rotate" then
@@ -89,6 +104,23 @@ function GameController:handle(command)
         self.view:render(self.state)
         if result.gameOver then self:finishGame() else self.state.isBusy = false end
     end)
+    return true
+end
+
+function GameController:pause()
+    if self.input.stop then self.input:stop() end
+end
+
+function GameController:resume()
+    if not self.active then return true end
+    self.view:setVisible(true)
+    self.view:clearTransient()
+    if self.view.recover then self.view:recover(self.state) else self.view:render(self.state) end
+    if self.state.isGameOver then
+        self.view:showGameOver(function() self:restart() end, function() self:returnHome() end)
+    elseif self.input.start then
+        self.input:start(function(command) self:handle(command) end)
+    end
     return true
 end
 
