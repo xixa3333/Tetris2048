@@ -6,8 +6,8 @@
 
 請從 [GitHub Releases](https://github.com/xixa3333/Tetris2048/releases/latest) 下載最新版：
 
-- Android：`Tetris2048-Android-v2.2.1.apk`
-- Windows：`Tetris2048-Windows-v2.2.1.zip`，解壓縮後執行 `Tetris2048.exe`
+- Android：`Tetris2048-Android-v2.3.0.apk`
+- Windows：`Tetris2048-Windows-v2.3.0.zip`，解壓縮後執行 `Tetris2048.exe`
 
 APK、EXE 等建置產物只放在 Releases，不提交到原始碼分支。
 
@@ -21,6 +21,7 @@ APK、EXE 等建置產物只放在 Releases，不提交到原始碼分支。
 - 玩家可設定 2～16 字元暱稱，排行榜顯示暱稱。
 - 本機排行榜彙整這台裝置上所有帳號的正分紀錄，0 分不計入，並可逐筆刪除。
 - 全球排行榜每個帳號只顯示一筆最高分，並列出所有玩家的最高分。
+- 本機與全球排行榜每頁顯示 10 個名次，可使用底部按鈕切換上一頁與下一頁。
 - 手機支援向上、下、左、右滑動，效果等同鍵盤 WASD。
 - 全部選項使用明亮粗體文字，提高手機戶外與低亮度環境可讀性。
 - 遊戲中可返回主畫面並保存當前分數；Game Over 可重新開始或返回主畫面。
@@ -58,6 +59,7 @@ tests/      單元、整合、邊緣、白盒與架構測試
 - `input_adapter.lua`：鍵盤與手機滑動手勢轉換。
 - `auth_service.lua`、`session_store.lua`：Firebase 認證與安全工作階段恢復。
 - `profile_service.lua`、排行榜模組：Firebase／本機資料服務。
+- `pagination.lua`：本機與全球排行榜共用的純分頁規則。
 - `lifecycle_adapter.lua`：手機暫停、恢復與故障回復。
 - `ui_renderer.lua`、`app_view.lua`：Solar2D 顯示層。
 - `main.lua`：依賴組裝入口。

@@ -7,11 +7,11 @@ local function text(group,value,x,y,size,color)
         font=native.systemFontBold,fontSize=size or 20})
     color=color or BRIGHT; o:setTextColor(color[1],color[2],color[3]); return o
 end
-local function button(group,value,x,y,action,width)
+local function button(group,value,x,y,action,width,height)
     local o=widget.newButton({defaultFile="image/explode1.png",overFile="image/explode3.png",
         label=value,font=native.systemFontBold,fontSize=21,
         labelColor={default=BRIGHT,over=ACCENT},emboss=true,
-        x=x,y=y,width=width or 220,height=58,onRelease=function() action(); return true end})
+        x=x,y=y,width=width or 220,height=height or 58,onRelease=function() action(); return true end})
     group:insert(o); return o
 end
 function AppView.new() return setmetatable({fields={}},AppView) end
@@ -66,16 +66,22 @@ function AppView:showPasswordChange(save,back)
     button(g,"修改密碼",250,455,function() save(password.text) end)
     button(g,"返回",250,550,back)
 end
-function AppView:showLeaderboard(title,records,actions,canDelete)
+function AppView:showLeaderboard(title,model,actions,canDelete)
     local g=self:_screen(title)
     button(g,"本機",80,150,actions.localTab,100); button(g,"全球",190,150,actions.globalTab,100)
     button(g,"暱稱",300,150,actions.nickname,100); button(g,"密碼",410,150,actions.password,100)
-    if #records==0 then text(g,"目前沒有紀錄",250,290,20,BRIGHT) end
-    for i=1,math.min(#records,8) do
-        local record=records[i]; local y=205+i*58
-        text(g,string.format("%d. %s   %d 分",i,record.nickname or record.account or "玩家",record.score),205,y,18,BRIGHT)
-        if canDelete then button(g,"刪除",440,y,function() actions.delete(record) end,75) end
+    if model.totalCount==0 then text(g,"目前沒有紀錄",250,290,20,BRIGHT) end
+    for i,record in ipairs(model.items) do
+        local y=200+i*44
+        text(g,string.format("%d. %s   %d 分",model.firstRank+i-1,record.nickname or record.account or "玩家",record.score),205,y,17,BRIGHT)
+        if canDelete then
+            local selectedRecord=record
+            button(g,"刪除",440,y,function() actions.delete(selectedRecord) end,75,38)
+        end
     end
+    if model.hasPrevious then button(g,"上一頁",125,700,actions.previous,120,46) end
+    text(g,string.format("%d / %d",model.page,model.totalPages),250,700,18,ACCENT)
+    if model.hasNext then button(g,"下一頁",375,700,actions.next,120,46) end
     button(g,"登出",140,790,actions.logout,150); button(g,"主畫面",350,790,actions.back,170)
 end
 function AppView:showLoading(value) local g=self:_screen("請稍候"); text(g,value,250,350,21,BRIGHT) end

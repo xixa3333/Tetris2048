@@ -24,7 +24,7 @@ function read(path) {
 
 test("Architecture: pure rule modules do not depend on Solar2D globals", () => {
   const forbidden = ["display.", "audio.", "timer.", "Runtime:", 'require("widget")'];
-  for (const path of ["../src/board.lua", "../src/game_state.lua", "../src/game_logic.lua"]) {
+  for (const path of ["../src/board.lua", "../src/game_state.lua", "../src/game_logic.lua", "../src/pagination.lua"]) {
     const contents = read(path);
     for (const token of forbidden) {
       assert(!contents.includes(token), `${path} contains forbidden dependency ${token}`);
