@@ -6,8 +6,8 @@
 
 請從 [GitHub Releases](https://github.com/xixa3333/Tetris2048/releases/latest) 下載最新版：
 
-- Android：`Tetris2048-Android-v2.1.0.apk`
-- Windows：`Tetris2048-Windows-v2.1.0.zip`，解壓縮後執行 `Tetris2048.exe`
+- Android：`Tetris2048-Android-v2.2.0.apk`
+- Windows：`Tetris2048-Windows-v2.2.0.zip`，解壓縮後執行 `Tetris2048.exe`
 
 APK、EXE 等建置產物只放在 Releases，不提交到原始碼分支。
 
@@ -22,6 +22,11 @@ APK、EXE 等建置產物只放在 Releases，不提交到原始碼分支。
 - 個人排行榜依帳號隔離，每局新增紀錄且可逐筆刪除。
 - 全球排行榜每個帳號只顯示一筆最高分，並列出所有玩家的最高分。
 - 手機支援向上、下、左、右滑動，效果等同鍵盤 WASD。
+- 全部選項使用明亮粗體文字，提高手機戶外與低亮度環境可讀性。
+- 遊戲中可返回主畫面並保存當前分數；Game Over 可重新開始或返回主畫面。
+- 登入前可寄送忘記密碼信；登入後可修改密碼及暱稱。
+- 登入後記住 Firebase 工作階段，只保存 Refresh Token，絕不保存明文密碼。
+- 手機從背景恢復時重建棋盤貼圖與輸入；若恢復失敗則回到乾淨主畫面。
 
 ## 操作
 
@@ -51,7 +56,9 @@ tests/      單元、整合、邊緣、白盒與架構測試
 - `game_controller.lua`：遊戲回合與動畫時序。
 - `app_controller.lua`：封面、登入、暱稱及排行榜流程。
 - `input_adapter.lua`：鍵盤與手機滑動手勢轉換。
-- `auth_service.lua`、`profile_service.lua`、排行榜模組：Firebase／本機資料服務。
+- `auth_service.lua`、`session_store.lua`：Firebase 認證與安全工作階段恢復。
+- `profile_service.lua`、排行榜模組：Firebase／本機資料服務。
+- `lifecycle_adapter.lua`：手機暫停、恢復與故障回復。
 - `ui_renderer.lua`、`app_view.lua`：Solar2D 顯示層。
 - `main.lua`：依賴組裝入口。
 
@@ -63,7 +70,7 @@ npm install
 npm test
 ```
 
-測試涵蓋遊戲規則、雙階段消除、旋轉放置、四方向滑動、登入與暱稱驗證、排行榜最高分去重、帳號隔離、邊緣條件、白盒分支、語法及架構限制。
+測試涵蓋遊戲規則、雙階段消除、旋轉放置、四方向滑動、背景恢復、密碼流程、安全工作階段、個資不落地、排行榜最高分去重、帳號隔離、邊緣條件、白盒分支、語法及架構限制。
 
 ## 後端
 

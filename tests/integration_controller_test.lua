@@ -5,12 +5,15 @@ local GameController = require("game_controller")
 
 local function chooseFirst(minimum) return minimum end
 
-local function buildSystem()
+local function buildSystem(callbacks)
+    callbacks = callbacks or {}
     local view = {clearCount = 0, renderCount = 0, animationCount = 0, overlayVisible = false}
     function view:clearTransient() self.clearCount = self.clearCount + 1; self.overlayVisible = false end
     function view:render() self.renderCount = self.renderCount + 1 end
     function view:playClearAnimation(cells) self.animationCount = self.animationCount + #cells end
-    function view:showGameOver(restart) self.overlayVisible = true; self.restart = restart end
+    function view:showGameOver(restart, home) self.overlayVisible = true; self.restart = restart; self.home = home end
+    function view:setVisible(value) self.visible = value end
+    function view:recover() self.recoverCount = (self.recoverCount or 0) + 1 end
     function view:destroy() self.destroyed = true end
 
     local scheduler = {queue = {}, cancelled = 0}
@@ -37,7 +40,8 @@ local function buildSystem()
 
     local controller = GameController.new({
         state = GameState.new(), logic = GameLogic, view = view,
-        scheduler = scheduler, input = input, sound = sound, random = chooseFirst
+        scheduler = scheduler, input = input, sound = sound, random = chooseFirst,
+        onGameOver = callbacks.onGameOver, onHome = callbacks.onHome
     })
     return controller, view, scheduler, input, sound
 end
@@ -50,6 +54,28 @@ T.test("Controller start wires input and renders a fresh game", function()
     T.equal(input.startCount, 1)
     T.equal(sound.backgroundCount, 1)
     T.truthy(input.handler)
+end)
+
+T.test("Game home records partial score once and returns to cover", function()
+    local recorded, homes = 0, 0
+    local controller = buildSystem({onGameOver=function() recorded=recorded+1 end,onHome=function() homes=homes+1 end})
+    controller:start(); controller.state.score=30
+    T.equal(controller:handle("home"),true)
+    T.equal(recorded,1); T.equal(homes,1); T.equal(controller.active,false)
+    controller:returnHome(); T.equal(recorded,1)
+end)
+
+T.test("Game-over restart starts a fresh game while home returns to cover", function()
+    local homes=0; local controller,view=buildSystem({onGameOver=function() end,onHome=function() homes=homes+1 end})
+    controller:start(); controller.state.score=50; controller:finishGame()
+    T.truthy(view.restart); T.truthy(view.home)
+    view.restart(); T.equal(controller.state.score,0); T.equal(homes,0)
+    controller:finishGame(); view.home(); T.equal(homes,1)
+end)
+
+T.test("Resume forces renderer recovery and restores input", function()
+    local controller,view,_,input=buildSystem(); controller:start(); controller:pause(); controller:resume()
+    T.equal(view.recoverCount,1); T.equal(input.startCount,2); T.equal(view.visible,true)
 end)
 
 T.test("Controller rejects repeated movement until scheduled turn completes", function()

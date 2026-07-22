@@ -11,6 +11,8 @@ local GlobalLeaderboard=require("global_leaderboard")
 local JsonStorage=require("json_storage")
 local ProfileService=require("profile_service")
 local InputAdapter=require("input_adapter")
+local SessionStore=require("session_store")
+local LifecycleAdapter=require("lifecycle_adapter")
 local firebaseConfig=require("firebase_config")
 
 math.randomseed(os.time())
@@ -31,9 +33,13 @@ local game=GameController.new({state=GameState.new(),logic=GameLogic,view=gameVi
     onGameOver=function(score) if app then app:onGameOver(score) end end,
     onHome=function() if app then app:showCover() end end})
 gameView:setCommandHandler(function(command) game:handle(command) end)
-local http=HttpClient.new(); local auth=AuthService.new(http,firebaseConfig)
+local http=HttpClient.new()
+local auth=AuthService.new(http,firebaseConfig,SessionStore.new(JsonStorage.new("session.json")))
 app=AppController.new({view=AppView.new(),game=game,auth=auth,
     profile=ProfileService.new(http,firebaseConfig,auth),
     localBoard=LocalLeaderboard.new(JsonStorage.new("leaderboard.json")),
     globalBoard=GlobalLeaderboard.new(http,firebaseConfig,auth),platform=platform})
 app:start()
+app:restoreLogin()
+local lifecycle=LifecycleAdapter.new(Runtime,app)
+lifecycle:start()
