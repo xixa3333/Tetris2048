@@ -1,5 +1,7 @@
 # Tetris2048
 
+[![GitHub Downloads](https://img.shields.io/github/downloads/xixa3333/Tetris2048/total?style=for-the-badge&label=下載次數&color=brightgreen)](https://github.com/xixa3333/Tetris2048/releases/latest)
+
 以 Solar2D（Lua）製作的方塊益智遊戲，結合俄羅斯方塊與滑動消除玩法。
 
 ## 下載
