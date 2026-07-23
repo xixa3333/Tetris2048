@@ -16,33 +16,37 @@ local LifecycleAdapter=require("lifecycle_adapter")
 local firebaseConfig=require("firebase_config")
 local appInfo=require("app_info")
 local AccountMigration=require("account_migration")
+local SettingsService=require("settings_service")
+local SeededRandom=require("seeded_random")
+local AudioService=require("audio_service")
+local UpdateService=require("update_service")
 
 math.randomseed(os.time())
 local audioFiles={eliminate=audio.loadStream("music/eliminate.mp3"),background=audio.loadStream("music/BackGround.mp3"),gameOver=audio.loadStream("music/GameOver.mp3")}
 local scheduler={}
 function scheduler:after(delay,callback) return timer.performWithDelay(delay,callback,1) end
 function scheduler:cancel(handle) if handle then pcall(timer.cancel,handle) end end
-local sound={}
-function sound:playBackground() audio.stop(1); audio.play(audioFiles.background,{channel=1,loops=-1}); audio.setVolume(0.15,{channel=1}) end
-function sound:playEliminate() audio.play(audioFiles.eliminate,{channel=2}); audio.setVolume(0.4,{channel=2}) end
-function sound:playGameOver() audio.stop(1); audio.play(audioFiles.gameOver,{channel=3}); audio.setVolume(0.4,{channel=3}) end
+local settings=SettingsService.new(JsonStorage.new("settings.json"))
+local sound=AudioService.new(audio,audioFiles,settings)
 local input=InputAdapter.new(Runtime,40)
 local platform={}; function platform:exit() native.requestExit() end
 function platform:openURL(url) return system.openURL(url) end
 
 local gameView=Renderer.new()
 local app
-local game=GameController.new({state=GameState.new(),logic=GameLogic,view=gameView,scheduler=scheduler,sound=sound,input=input,random=math.random,
+local game=GameController.new({state=GameState.new(),logic=GameLogic,view=gameView,scheduler=scheduler,sound=sound,input=input,
+    randomFactory=SeededRandom.factory(settings,math.random),
     onGameOver=function(score) if app then app:onGameOver(score) end end,
     onHome=function() if app then app:showCover() end end})
 gameView:setCommandHandler(function(command) game:handle(command) end)
 local http=HttpClient.new()
+local update=UpdateService.new(http,appInfo)
 local auth=AuthService.new(http,firebaseConfig,SessionStore.new(JsonStorage.new("session.json")))
 local profile=ProfileService.new(http,firebaseConfig,auth)
 local globalBoard=GlobalLeaderboard.new(http,firebaseConfig,auth)
 app=AppController.new({view=AppView.new(),game=game,auth=auth,profile=profile,
     localBoard=LocalLeaderboard.new(JsonStorage.new("leaderboard.json")),
-    globalBoard=globalBoard,migration=AccountMigration.new(auth,profile,globalBoard),platform=platform,info=appInfo})
+    globalBoard=globalBoard,migration=AccountMigration.new(auth,profile,globalBoard),settings=settings,update=update,platform=platform,info=appInfo})
 app:start()
 app:restoreLogin()
 local lifecycle=LifecycleAdapter.new(Runtime,app)

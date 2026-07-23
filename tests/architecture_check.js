@@ -75,12 +75,40 @@ test("Architecture: renderer owns separate animation and overlay groups", () => 
 
 test("Architecture: app flow depends on injected service contracts", () => {
   const contents = read("../src/app_controller.lua");
-  for (const dependency of ["view", "game", "auth", "profile", "localBoard", "globalBoard", "migration", "platform", "info"]) {
+  for (const dependency of ["view", "game", "auth", "profile", "localBoard", "globalBoard", "migration", "settings", "update", "platform", "info"]) {
     assert(contents.includes(`d.${dependency}`), `missing app dependency: ${dependency}`);
   }
   for (const forbidden of ["display.", "native.", "network.", 'require("widget")']) {
     assert(!contents.includes(forbidden), `app controller contains platform dependency ${forbidden}`);
   }
+});
+
+test("Architecture: settings and seeded randomness remain pure services", () => {
+  for (const path of ["../src/settings_service.lua", "../src/seeded_random.lua"]) {
+    const contents = read(path);
+    for (const forbidden of ["display.", "native.", "audio.", "network.", 'require("widget")']) {
+      assert(!contents.includes(forbidden), `${path} contains platform dependency ${forbidden}`);
+    }
+  }
+});
+
+test("Responsive UX: settings use the same letterboxed layout as the cover", () => {
+  const config = read("../src/config.lua");
+  const view = read("../src/app_view.lua");
+  assert(config.includes('scale = "letterbox"'), "automatic device scaling is missing");
+  const settings = view.slice(view.indexOf("function AppView:showSettings"), view.indexOf("function AppView:showIntro"));
+  assert(settings.includes('self:_screen("設定")'), "settings do not share the cover layout grid");
+  assert(!settings.includes("widget.newScrollView"), "settings use a nested coordinate system");
+});
+
+test("Architecture: update lookup stays outside controllers and trusts a fixed release URL", () => {
+  const service = read("../src/update_service.lua");
+  const controller = read("../src/app_controller.lua");
+  for (const forbidden of ["display.", "native.", "network.", 'require("widget")']) {
+    assert(!service.includes(forbidden), `update service contains platform dependency ${forbidden}`);
+  }
+  assert(controller.includes("self.update:check"), "startup does not check for updates");
+  assert(service.includes("url=self.downloadUrl"), "update prompt does not use the trusted configured URL");
 });
 
 test("Architecture: legacy migration is isolated from UI and Solar2D", () => {
