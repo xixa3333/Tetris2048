@@ -12,8 +12,8 @@
 
 請從 [GitHub Releases](https://github.com/xixa3333/Tetris2048/releases/latest) 下載最新版：
 
-- Android：`Tetris2048-Android-v2.3.5.apk`
-- Windows：`Tetris2048-Windows-v2.3.5.zip`，解壓縮後執行 `Tetris2048.exe`
+- Android：`Tetris2048-Android-v2.3.6.apk`
+- Windows：`Tetris2048-Windows-v2.3.6.zip`，解壓縮後執行 `Tetris2048.exe`
 
 APK、EXE 等建置產物只放在 Releases，不提交到原始碼分支。
 
@@ -45,16 +45,17 @@ APK、EXE 等建置產物只放在 Releases，不提交到原始碼分支。
 ## 排行榜
 
 - 排行榜需先使用唯一帳號 ID 登入；ID 可使用 3～20 個英文字母、數字、底線、句點或連字號，玩家也可設定 2～16 字元暱稱。
-- 舊版電子郵件帳號仍可登入，登入後可改成一般帳號 ID；新註冊不需要提供電子郵件。
+- 新帳號的 ID 建立後永久不可修改；程式會自動建立不收信、不顯示給玩家的 Firebase 內部虛擬信箱。
+- 舊版電子郵件帳號登入後會建議執行一次性轉換；新 ID、暱稱及全球最高分確認搬移成功後，才清除舊排行榜紀錄。
 - 本機排行榜彙整這台裝置上所有帳號的正分紀錄，並可逐筆刪除。
 - 全球排行榜每個帳號只顯示一筆最高分，並在頁面上固定顯示自己的全球名次、加亮自己的紀錄列；暱稱修改後會同步更新。
-- 帳號 ID 是唯一且可修改的登入名稱，暱稱可以重複；排行榜以帳號固定 UID 確認歸屬，因此修改 ID 或暱稱不會產生另一筆排名。
+- 帳號 ID 是唯一且不可修改的登入名稱，暱稱可以重複；排行榜以固定 UID 確認歸屬。
 - 本機與全球排行榜都是每頁 10 名，可在底部切換上一頁與下一頁。
 
 ## 其他功能
 
 - 全部選項使用明亮粗體文字，提高手機可讀性。
-- 一般 ID 不蒐集電子郵件，可在登入後修改帳號 ID、密碼及暱稱；舊信箱帳號仍可使用忘記密碼信。
+- 一般 ID 不蒐集真實電子郵件，可在登入後修改密碼及暱稱；舊信箱帳號仍可使用忘記密碼信或轉換成永久 ID。
 - 登入後只保存 Firebase Refresh Token，不保存明文密碼或 ID Token。
 - 手機從背景恢復時會重建棋盤貼圖與輸入；若恢復失敗則回到乾淨主畫面。
 
@@ -76,7 +77,7 @@ tests/      單元、整合、邊緣、白盒與架構測試
 - `game_controller.lua`：遊戲回合與動畫時序。
 - `app_controller.lua`：封面、登入、暱稱及排行榜流程。
 - `input_adapter.lua`：鍵盤與手機滑動手勢轉換。
-- `account_identity.lua`、`auth_service.lua`、`session_store.lua`：唯一 ID 轉換、Firebase 認證與安全工作階段恢復。
+- `account_identity.lua`、`account_migration.lua`、`auth_service.lua`、`session_store.lua`：永久 ID、舊帳號資料搬移、Firebase 認證與安全工作階段恢復。
 - `profile_service.lua`、排行榜模組：Firebase／本機資料服務。
 - `pagination.lua`：本機與全球排行榜共用的純分頁規則。
 - `lifecycle_adapter.lua`：手機暫停、恢復與故障回復。

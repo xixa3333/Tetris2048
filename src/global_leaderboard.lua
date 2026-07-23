@@ -76,4 +76,27 @@ function GlobalLeaderboard:list(callback)
         callback(true,records,ownRank)
     end)
 end
+function GlobalLeaderboard:migrateFrom(oldUser,callback)
+    local newUser=self.auth:currentUser()
+    if not newUser or not oldUser then callback(false,"帳號轉換狀態錯誤"); return end
+    local oldUrl=self.base.."/scores/"..oldUser.uid
+    local oldHeaders={Authorization="Bearer "..oldUser.idToken}
+    self.http:request("GET",oldUrl,nil,oldHeaders,function(ok,data,status)
+        if status==404 then callback(true); return end
+        if not ok then callback(false,"舊排行榜讀取失敗"); return end
+        local oldScore=decode(data).score
+        self:_write(newUser,oldScore,function(written)
+            if not written then callback(false,"排行榜轉移失敗"); return end
+            self.http:request("DELETE",oldUrl,nil,oldHeaders,function(deleted,_,deleteStatus)
+                callback(deleted or deleteStatus==404,(deleted or deleteStatus==404) and nil or "舊排行榜清理失敗")
+            end)
+        end)
+    end)
+end
+function GlobalLeaderboard:deleteCurrent(callback)
+    local user=self.auth:currentUser(); if not user then callback(false); return end
+    self.http:request("DELETE",self.base.."/scores/"..user.uid,nil,self:_headers(),function(ok,_,status)
+        callback(ok or status==404)
+    end)
+end
 return GlobalLeaderboard

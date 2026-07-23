@@ -1,9 +1,9 @@
 local Pagination=require("pagination")
 local AppController={}; AppController.__index=AppController
 function AppController.new(d)
-    assert(d.view and d.game and d.auth and d.profile and d.localBoard and d.globalBoard and d.platform and d.info)
+    assert(d.view and d.game and d.auth and d.profile and d.localBoard and d.globalBoard and d.migration and d.platform and d.info)
     return setmetatable({view=d.view,game=d.game,auth=d.auth,profile=d.profile,
-        localBoard=d.localBoard,globalBoard=d.globalBoard,platform=d.platform,info=d.info,
+        localBoard=d.localBoard,globalBoard=d.globalBoard,migration=d.migration,platform=d.platform,info=d.info,
         clock=d.clock or os.time,screen="boot",localPage=1,globalPage=1,infoPage=1},AppController)
 end
 function AppController:start() self:showCover() end
@@ -65,20 +65,24 @@ function AppController:forgotPassword(email)
 end
 function AppController:ensureNickname()
     local user=self.auth:currentUser()
-    if user.nickname then self:showLocalLeaderboard(); return end
+    if user.nickname then self:afterIdentityReady(); return end
     self.screen="loading"; self.view:showLoading("讀取玩家資料…")
     self.profile:get(function(ok,nickname)
-        if ok and nickname then self:showLocalLeaderboard()
+        if ok and nickname then self:afterIdentityReady()
         elseif ok then self:showNicknameSetup()
         else self.view:showError("玩家資料讀取失敗",function() self:showCover() end) end
     end)
+end
+function AppController:afterIdentityReady()
+    local user=self.auth:currentUser()
+    if user and user.isLegacy then self:showLegacyMigration() else self:showLocalLeaderboard() end
 end
 function AppController:showNicknameSetup()
     self.screen="nickname"
     self.view:showNickname(function(nickname)
         self.view:setStatus("儲存中…")
         self.profile:save(nickname,function(ok,message)
-            if ok then self.globalBoard:updateNickname(function() self:showLocalLeaderboard() end)
+            if ok then self.globalBoard:updateNickname(function() self:afterIdentityReady() end)
             else self.view:setStatus(message) end
         end)
     end,function() if self.auth:isSignedIn() then self:showLocalLeaderboard() else self:showCover() end end)
@@ -93,18 +97,23 @@ function AppController:showPasswordChange()
         end)
     end,function() self:showLocalLeaderboard() end)
 end
-function AppController:showAccountChange()
+function AppController:showAccountInfo()
     self.screen="account"
-    self.view:showAccountChange(function(account)
-        self.view:setStatus("修改中…")
-        self.auth:changeAccount(account,function(ok,message)
+    local user=self.auth:currentUser()
+    self.view:showAccountInfo(user and user.account or "",function() self:showLocalLeaderboard() end)
+end
+function AppController:showLegacyMigration()
+    self.screen="accountMigration"
+    self.view:showLegacyMigration(function(account,password)
+        self.view:setStatus("轉換中，請勿關閉遊戲…")
+        self.migration:migrate(account,password,function(ok,message)
             if ok then self:showLocalLeaderboard() else self.view:setStatus(message) end
         end)
-    end,function() self:showLocalLeaderboard() end)
+    end,function() self:showCover() end)
 end
 function AppController:_actions()
     return {localTab=function() self:showLocalLeaderboard(1) end,globalTab=function() self:showGlobalLeaderboard(1) end,
-        account=function() self:showAccountChange() end,nickname=function() self:showNicknameSetup() end,
+        account=function() self:showAccountInfo() end,accountLabel="帳號 ID",nickname=function() self:showNicknameSetup() end,
         password=function() self:showPasswordChange() end,
         logout=function() self.auth:signOut(); self:showCover() end,back=function() self:showCover() end}
 end

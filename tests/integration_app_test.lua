@@ -13,14 +13,14 @@ local function build(signedIn)
     function auth:restoreSession(callback) callback(false,"NO_SESSION") end
     function auth:sendPasswordReset(_,callback) callback(true,"sent") end
     function auth:changePassword(_,callback) callback(true,"changed") end
-    function auth:changeAccount(account,callback) self.user.account=account; callback(true,"changed") end
     local view={screen=nil}; function view:showCover(actions) self.screen="cover";self.actions=actions end
     function view:showIntro(back) self.screen="intro";self.back=back end
     function view:showAppInfo(info,model,actions) self.screen="appInfo";self.info=info;self.model=model;self.actions=actions end
     function view:showAuth(actions) self.screen="auth";self.actions=actions end
     function view:showNickname(save,back) self.screen="nickname";self.saveNickname=save;self.back=back end
     function view:showPasswordChange(save,back) self.screen="password";self.savePassword=save;self.back=back end
-    function view:showAccountChange(save,back) self.screen="account";self.saveAccount=save;self.back=back end
+    function view:showAccountInfo(account,back) self.screen="account";self.account=account;self.back=back end
+    function view:showLegacyMigration(save,back) self.screen="migration";self.saveMigration=save;self.back=back end
     function view:showLeaderboard(title,model,actions) self.screen=title;self.model=model;self.actions=actions end
     function view:showLoading() self.screen="loading" end
     function view:showError() self.screen="error" end
@@ -44,10 +44,15 @@ local function build(signedIn)
     local profile={}
     function profile:get(callback) auth.user.nickname="測試玩家"; callback(true,"測試玩家") end
     function profile:save(nickname,callback) auth.user.nickname=nickname; callback(true,nickname) end
+    function profile:deleteCurrent(callback) callback(true) end
+    local migration={}
+    function migration:migrate(account,password,callback)
+        auth.user={uid="new-u",account=account,nickname="測試玩家",isLegacy=false}; callback(true,"migrated")
+    end
     local platform={exits=0,urls={}}; function platform:exit() self.exits=self.exits+1 end
     function platform:openURL(url) self.urls[#self.urls+1]=url; return true end
     return AppController.new({view=view,game=game,auth=auth,profile=profile,localBoard=localBoard,
-        globalBoard=global,platform=platform,info=AppInfo,clock=function() return 1 end}),view,game,localBoard,global,platform
+        globalBoard=global,migration=migration,platform=platform,info=AppInfo,clock=function() return 1 end}),view,game,localBoard,global,platform
 end
 
 T.test("Cover routes to game and intro without coupling game logic to screens",function()
@@ -56,26 +61,32 @@ T.test("Cover routes to game and intro without coupling game logic to screens",f
     view.actions.start(); T.equal(game.starts,1); T.equal(game.view.visible,true)
 end)
 
-T.test("Signed-in player can change the unique account ID independently of nickname",function()
+T.test("Signed-in ID account is immutable and nickname remains independent",function()
     local app,view=build(true); app.auth.user.nickname="原暱稱"; app:showLocalLeaderboard(); view.actions.account()
-    T.equal(view.screen,"account"); view.saveAccount("new_id")
-    T.equal(view.screen,"本機排行榜")
-    T.equal(app.auth:currentUser().account,"new_id")
+    T.equal(view.screen,"account"); T.equal(view.account,"u@example.com")
+    T.equal(app.auth:currentUser().account,"u@example.com")
     T.equal(app.auth:currentUser().nickname,"原暱稱")
+end)
+
+T.test("Legacy email account is prompted once and migrates to an immutable ID",function()
+    local app,view=build(true); app.auth.user.isLegacy=true; app:openLeaderboard()
+    T.equal(view.screen,"migration"); view.saveMigration("permanent_id","123456")
+    T.equal(view.screen,"本機排行榜"); T.equal(app.auth:currentUser().account,"permanent_id")
+    view.actions.account(); T.equal(view.screen,"account"); T.equal(view.account,"permanent_id")
 end)
 
 T.test("Cover APP information routes through versions and safe GitHub links",function()
     local app,view,_,_,_,platform=build(false); app:start(); view.actions.info()
-    T.equal(app.screen,"appInfo"); T.equal(view.model.items[1].version,"2.3.5")
+    T.equal(app.screen,"appInfo"); T.equal(view.model.items[1].version,"2.3.6")
     view.actions.repository(); view.actions.issues(); view.actions.author()
     T.equal(platform.urls[1],"https://github.com/xixa3333/Tetris2048")
     T.equal(platform.urls[2],"https://github.com/xixa3333/Tetris2048/issues")
     T.equal(platform.urls[3],"https://github.com/xixa3333")
     T.equal(app:openExternal("https://example.com/phishing"),false)
     T.equal(#platform.urls,3)
-    view.actions.next(); T.equal(view.model.items[1].version,"2.3.4")
-    app:onResume(); T.equal(view.screen,"appInfo"); T.equal(view.model.items[1].version,"2.3.4")
-    view.actions.previous(); T.equal(view.model.items[1].version,"2.3.5")
+    view.actions.next(); T.equal(view.model.items[1].version,"2.3.5")
+    app:onResume(); T.equal(view.screen,"appInfo"); T.equal(view.model.items[1].version,"2.3.5")
+    view.actions.previous(); T.equal(view.model.items[1].version,"2.3.6")
     view.actions.back(); T.equal(view.screen,"cover")
 end)
 
