@@ -88,6 +88,19 @@ T.test("Controller rejects repeated movement until scheduled turn completes", fu
     T.equal(controller:handle("right"), true)
 end)
 
+T.test("Controller move preserves a cell occupied immediately before landing", function()
+    local controller, _, scheduler = buildSystem()
+    controller:start()
+    controller.random=function(minimum,maximum)
+        if maximum>5 then controller.state.grid[1][1]=9 end
+        return minimum
+    end
+    T.equal(controller:handle("down"),true)
+    scheduler:flush()
+    T.equal(controller.state.grid[1][1],9)
+    T.equal(controller.state.isGameOver,false)
+end)
+
 T.test("Controller restart cancels work and clears transient animation and text layer", function()
     local controller, view, scheduler, input = buildSystem()
     controller:start()

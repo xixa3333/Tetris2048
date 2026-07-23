@@ -27,6 +27,27 @@ T.test("Boundary: placement accepts the bottom-right corner", function()
     T.equal(grid[10][10], 1)
 end)
 
+T.test("Boundary: collision at the final shape cell leaves every target unchanged", function()
+    local grid = Board.new(10, 10)
+    grid[10][10] = 8
+    local before = Board.copy(grid)
+    T.equal(Board.tryPlace(grid, {{7, 7}, {7, 7}}, 9, 9), false)
+    T.gridEqual(grid, before)
+end)
+
+T.test("Boundary: transactional placement preserves every preoccupied board cell", function()
+    local shape = {{3, 3, 3}, {0, 3, 0}}
+    for blockedRow=1,10 do
+        for blockedColumn=1,10 do
+            local grid=Board.new(10,10); grid[blockedRow][blockedColumn]=9
+            local before=Board.copy(grid)
+            local placed=Board.tryPlace(grid,shape,4,4)
+            if not placed then T.gridEqual(grid,before) end
+            T.equal(grid[blockedRow][blockedColumn],9)
+        end
+    end
+end)
+
 T.test("Boundary: placement rejects every position outside the board", function()
     local grid = Board.new(10, 10)
     T.equal(Board.canPlace(grid, {{1}}, 0, 1), false)

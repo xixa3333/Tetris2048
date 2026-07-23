@@ -39,6 +39,19 @@ T.test("GameLogic.placeRandomPiece reports game over when no placement exists", 
     T.equal(state.isGameOver, true)
 end)
 
+T.test("GameLogic revalidates a stale landing position before placement", function()
+    local state = GameState.new()
+    state.currentPiece = 2
+    local function occupyFirstCandidate(minimum)
+        state.grid[1][1] = 9
+        return minimum
+    end
+    T.equal(GameLogic.placeRandomPiece(state, occupyFirstCandidate), true)
+    T.equal(state.grid[1][1], 9)
+    T.equal(state.grid[1][2], 2)
+    T.equal(state.grid[2][2], 2)
+end)
+
 T.test("GameLogic.move slides, scores a completed line, and advances queue", function()
     local state = GameState.new()
     state.currentPiece, state.nextPiece = 1, 2
@@ -73,14 +86,14 @@ T.test("GameLogic.move places the rotated preview shape before resetting rotatio
     state.currentPiece, state.nextPiece = 1, 1
     GameLogic.rotateNext(state)
     local expected = GameLogic.shapeFor(1, 1)
-    local originalPlace = Board.place
+    local originalPlace = Board.tryPlace
     local captured
-    Board.place = function(grid, shape, row, column)
+    Board.tryPlace = function(grid, shape, row, column)
         captured = shape
         return originalPlace(grid, shape, row, column)
     end
     local ok, message = pcall(GameLogic.move, state, "left", chooseFirst)
-    Board.place = originalPlace
+    Board.tryPlace = originalPlace
     if not ok then error(message) end
     T.gridEqual(captured, expected)
     T.equal(state.rotation, 0)
