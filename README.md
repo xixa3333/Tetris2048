@@ -2,7 +2,7 @@
 
 ## 遊戲介紹
 
-Tetris2048 是使用 Solar2D（Lua）開發的益智遊戲，結合俄羅斯方塊、方向滑動與行列消除。玩家每回合先將盤面方塊往指定方向移動，再由系統放入下一個方塊；透過旋轉、保留與策略移動填滿整列或整行來得分，並挑戰本機及全球排行榜。
+Tetris2048 是使用 Solar2D（Lua）開發的益智遊戲，結合俄羅斯方塊、2048的方向滑動與行列消除。玩家每回合先將盤面方塊往指定方向移動，再由系統放入下一個方塊；透過旋轉、保留與策略移動填滿整列或整行來得分，並挑戰本機及全球排行榜。
 
 [![GitHub Downloads](https://img.shields.io/github/downloads/xixa3333/Tetris2048/total?style=for-the-badge&label=下載次數&color=brightgreen)](https://github.com/xixa3333/Tetris2048/releases/latest)
 
