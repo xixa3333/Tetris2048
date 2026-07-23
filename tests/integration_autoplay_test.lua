@@ -2,6 +2,7 @@ local T = require("test_helper")
 local Board = require("board")
 local GameState = require("game_state")
 local GameLogic = require("game_logic")
+local constants = require("constants")
 
 local function counts(grid)
     local result = {}
@@ -27,7 +28,7 @@ T.test("Autoplay: long games never overwrite a color during movement or placemen
         local beforeMove = counts(state.grid)
         GameLogic.moveBlocks(state, directions[random(1, 4)])
         local afterMove = counts(state.grid)
-        for color = 1, 5 do
+        for color = 1, #constants.BlockImage do
             T.equal(afterMove[color] or 0, beforeMove[color] or 0,
                 "movement overwrote color " .. color .. " on turn " .. turn)
         end

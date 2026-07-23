@@ -2,6 +2,7 @@ local T = require("test_helper")
 local Board = require("board")
 local GameState = require("game_state")
 local GameLogic = require("game_logic")
+local constants = require("constants")
 
 local function chooseFirst(minimum) return minimum end
 
@@ -49,7 +50,7 @@ T.test("Boundary: randomized dense slides preserve every color", function()
         for row = 1, 6 do
             for column = 1, 6 do
                 if random(100) <= 45 then
-                    local color = random(5)
+                    local color = random(#constants.BlockImage)
                     grid[row][column] = color
                     before[color] = (before[color] or 0) + 1
                 end
@@ -68,7 +69,7 @@ T.test("Boundary: randomized dense slides preserve every color", function()
             local color = moved[row][column]
             if color ~= 0 then after[color] = (after[color] or 0) + 1 end
         end end
-        for color = 1, 5 do
+        for color = 1, #constants.BlockImage do
             T.equal(after[color] or 0, before[color] or 0,
                 "random slide overwrote color at iteration " .. iteration)
         end
@@ -141,4 +142,14 @@ T.test("Boundary: rotated I piece has legal positions on a blank board", functio
     T.equal(#vertical, 70)
     state.currentPiece, state.rotation = 5, 1
     T.equal(GameLogic.placeRandomPiece(state, chooseFirst), true)
+end)
+
+T.test("Boundary: the 3x3 L piece has legal placements in every rotation", function()
+    local state = GameState.new()
+    for rotation = 0, 3 do
+        local shape = GameLogic.shapeFor(6, rotation)
+        T.equal(#shape, 3)
+        T.equal(#shape[1], 3)
+        T.equal(#GameLogic.findPlacements(state, 6, rotation), 64)
+    end
 end)

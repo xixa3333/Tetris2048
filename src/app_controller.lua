@@ -1,10 +1,10 @@
 local Pagination=require("pagination")
 local AppController={}; AppController.__index=AppController
 function AppController.new(d)
-    assert(d.view and d.game and d.auth and d.profile and d.localBoard and d.globalBoard and d.platform)
+    assert(d.view and d.game and d.auth and d.profile and d.localBoard and d.globalBoard and d.platform and d.info)
     return setmetatable({view=d.view,game=d.game,auth=d.auth,profile=d.profile,
-        localBoard=d.localBoard,globalBoard=d.globalBoard,platform=d.platform,
-        clock=d.clock or os.time,screen="boot",localPage=1,globalPage=1},AppController)
+        localBoard=d.localBoard,globalBoard=d.globalBoard,platform=d.platform,info=d.info,
+        clock=d.clock or os.time,screen="boot",localPage=1,globalPage=1,infoPage=1},AppController)
 end
 function AppController:start() self:showCover() end
 function AppController:restoreLogin()
@@ -16,13 +16,30 @@ end
 function AppController:showCover()
     self.screen="cover"; self.game.view:setVisible(false)
     self.view:showCover({start=function() self:startGame() end,intro=function() self:showIntro() end,
-        leaderboard=function() self:openLeaderboard() end,exit=function() self.platform:exit() end},self.auth:currentUser())
+        leaderboard=function() self:openLeaderboard() end,info=function() self:showAppInfo() end,
+        exit=function() self.platform:exit() end},self.auth:currentUser())
 end
 function AppController:startGame()
     self.screen="game"; self.view:hide(); self.game.view:setVisible(true); self.game:start()
 end
 function AppController:showIntro()
     self.screen="intro"; self.view:showIntro(function() self:showCover() end)
+end
+function AppController:openExternal(url)
+    local allowed=url==self.info.repositoryUrl or url==self.info.issuesUrl or url==self.info.authorUrl
+    if not allowed or type(url)~="string" or not url:match("^https://github%.com/") then return false end
+    return self.platform:openURL(url)~=false
+end
+function AppController:showAppInfo(page)
+    self.screen="appInfo"
+    local model=Pagination.page(self.info.versions,page or self.infoPage,1); self.infoPage=model.page
+    self.view:showAppInfo(self.info,model,{
+        repository=function() self:openExternal(self.info.repositoryUrl) end,
+        issues=function() self:openExternal(self.info.issuesUrl) end,
+        author=function() self:openExternal(self.info.authorUrl) end,
+        previous=function() self:showAppInfo(self.infoPage-1) end,
+        next=function() self:showAppInfo(self.infoPage+1) end,
+        back=function() self:showCover() end})
 end
 function AppController:openLeaderboard()
     if not self.auth:isSignedIn() then
@@ -76,9 +93,19 @@ function AppController:showPasswordChange()
         end)
     end,function() self:showLocalLeaderboard() end)
 end
+function AppController:showAccountChange()
+    self.screen="account"
+    self.view:showAccountChange(function(account)
+        self.view:setStatus("修改中…")
+        self.auth:changeAccount(account,function(ok,message)
+            if ok then self:showLocalLeaderboard() else self.view:setStatus(message) end
+        end)
+    end,function() self:showLocalLeaderboard() end)
+end
 function AppController:_actions()
     return {localTab=function() self:showLocalLeaderboard(1) end,globalTab=function() self:showGlobalLeaderboard(1) end,
-        nickname=function() self:showNicknameSetup() end,password=function() self:showPasswordChange() end,
+        account=function() self:showAccountChange() end,nickname=function() self:showNicknameSetup() end,
+        password=function() self:showPasswordChange() end,
         logout=function() self.auth:signOut(); self:showCover() end,back=function() self:showCover() end}
 end
 function AppController:showLocalLeaderboard(page)
@@ -91,9 +118,10 @@ function AppController:showLocalLeaderboard(page)
 end
 function AppController:showGlobalLeaderboard(page)
     self.screen="globalLeaderboard"; self.view:showLoading("讀取全球排行榜…")
-    self.globalBoard:list(function(ok,records)
+    self.globalBoard:list(function(ok,records,ownRank)
         if ok then
             local model=Pagination.page(records,page or self.globalPage,10); self.globalPage=model.page
+            model.ownRank=ownRank
             local actions=self:_actions()
             actions.previous=function() self:showGlobalLeaderboard(self.globalPage-1) end
             actions.next=function() self:showGlobalLeaderboard(self.globalPage+1) end
@@ -113,6 +141,7 @@ function AppController:onResume()
     local ok=pcall(function()
         if self.screen=="game" then self.game:resume()
         elseif self.screen=="intro" then self:showIntro()
+        elseif self.screen=="appInfo" then self:showAppInfo()
         elseif self.screen=="localLeaderboard" then self:showLocalLeaderboard()
         elseif self.screen=="globalLeaderboard" then self:showGlobalLeaderboard()
         elseif self.screen=="auth" then self:openLeaderboard()

@@ -24,7 +24,7 @@ function ProfileService:save(nickname,callback)
     nickname=(nickname or ""):match("^%s*(.-)%s*$")
     if #nickname<2 or #nickname>16 then callback(false,"暱稱需為 2 到 16 個字元"); return end
     self.http:request("PATCH",self.base..user.uid,{fields={
-        uid=stringField(user.uid),account=stringField(user.account),nickname=stringField(nickname)
+        uid=stringField(user.uid),nickname=stringField(nickname)
     }},self:_headers(),function(ok)
         if ok then user.nickname=nickname; callback(true,nickname)
         else callback(false,"暱稱儲存失敗") end

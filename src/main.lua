@@ -14,6 +14,7 @@ local InputAdapter=require("input_adapter")
 local SessionStore=require("session_store")
 local LifecycleAdapter=require("lifecycle_adapter")
 local firebaseConfig=require("firebase_config")
+local appInfo=require("app_info")
 
 math.randomseed(os.time())
 local audioFiles={eliminate=audio.loadStream("music/eliminate.mp3"),background=audio.loadStream("music/BackGround.mp3"),gameOver=audio.loadStream("music/GameOver.mp3")}
@@ -26,6 +27,7 @@ function sound:playEliminate() audio.play(audioFiles.eliminate,{channel=2}); aud
 function sound:playGameOver() audio.stop(1); audio.play(audioFiles.gameOver,{channel=3}); audio.setVolume(0.4,{channel=3}) end
 local input=InputAdapter.new(Runtime,40)
 local platform={}; function platform:exit() native.requestExit() end
+function platform:openURL(url) return system.openURL(url) end
 
 local gameView=Renderer.new()
 local app
@@ -38,7 +40,7 @@ local auth=AuthService.new(http,firebaseConfig,SessionStore.new(JsonStorage.new(
 app=AppController.new({view=AppView.new(),game=game,auth=auth,
     profile=ProfileService.new(http,firebaseConfig,auth),
     localBoard=LocalLeaderboard.new(JsonStorage.new("leaderboard.json")),
-    globalBoard=GlobalLeaderboard.new(http,firebaseConfig,auth),platform=platform})
+    globalBoard=GlobalLeaderboard.new(http,firebaseConfig,auth),platform=platform,info=appInfo})
 app:start()
 app:restoreLogin()
 local lifecycle=LifecycleAdapter.new(Runtime,app)

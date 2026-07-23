@@ -36,7 +36,7 @@ T.test("Nickname update preserves an existing global high score",function()
     T.equal(http.calls[2].body.fields.nickname.stringValue,"新暱稱")
 end)
 
-T.test("Global leaderboard shows one highest record for every UID",function()
+T.test("Global leaderboard shows one highest record for every UID and returns own rank",function()
     local http={}
     function http:request(_,_,_,_,callback)
         callback(true,{
@@ -46,9 +46,27 @@ T.test("Global leaderboard shows one highest record for every UID",function()
         },200)
     end
     local board=GlobalLeaderboard.new(http,{projectId="p"},auth())
-    board:list(function(ok,records)
+    board:list(function(ok,records,ownRank)
         T.equal(ok,true); T.equal(#records,2)
         T.equal(records[1].uid,"u1"); T.equal(records[1].score,50)
-        T.equal(records[2].uid,"u2")
+        T.equal(records[1].isCurrent,true); T.equal(records[2].isCurrent,false)
+        T.equal(records[2].uid,"u2"); T.equal(ownRank,1)
+    end)
+end)
+
+T.test("Global leaderboard finds own rank beyond the former 100-player boundary",function()
+    local rows={}
+    for rank=1,151 do
+        local uid=rank==151 and "u1" or "other"..rank
+        rows[rank]={document={name="scores/"..uid,fields={uid={stringValue=uid},nickname={stringValue="玩家"..rank},score={integerValue=tostring(1000-rank)}}}}
+    end
+    local http={}
+    function http:request(_,_,body,_,callback)
+        T.equal(body.structuredQuery.limit,nil)
+        callback(true,rows,200)
+    end
+    GlobalLeaderboard.new(http,{projectId="p"},auth()):list(function(ok,records,ownRank)
+        T.equal(ok,true); T.equal(#records,151); T.equal(ownRank,151)
+        T.equal(records[151].isCurrent,true)
     end)
 end)

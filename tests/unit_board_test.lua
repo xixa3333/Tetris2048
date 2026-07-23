@@ -1,5 +1,6 @@
 local T = require("test_helper")
 local Board = require("board")
+local constants = require("constants")
 
 T.test("Board.rotate rotates a T piece clockwise", function()
     local rotated = Board.rotate({{1, 1, 1}, {0, 1, 0}}, 1)
@@ -69,7 +70,9 @@ T.test("Board.slide never overwrites interleaved components", function()
     local before = colorCounts(grid)
     local moved = Board.slide(grid, "right")
     local after = colorCounts(moved)
-    for color = 1, 5 do T.equal(after[color], before[color], "color was overwritten: " .. color) end
+    for color = 1, #constants.BlockImage do
+        T.equal(after[color], before[color], "color was overwritten: " .. color)
+    end
 end)
 
 T.test("Board.clearCompletedLines clears row and column intersections once", function()

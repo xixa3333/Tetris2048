@@ -17,6 +17,17 @@ T.test("GameLogic.start resets state and creates current and next pieces", funct
     T.equal(state.grid[1][1], 1)
 end)
 
+T.test("GameLogic creates a blue L piece from a 3x3 matrix", function()
+    local shape = GameLogic.shapeFor(6, 0)
+    T.equal(#shape, 3)
+    T.equal(#shape[1], 3)
+    T.equal(shape[1][1], 6)
+    T.equal(shape[2][1], 6)
+    T.equal(shape[3][1], 6)
+    T.equal(shape[3][2], 6)
+    T.equal(GameLogic.newPiece(function(_, maximum) return maximum end), 6)
+end)
+
 T.test("GameLogic.reserveNext stores and swaps preview pieces", function()
     local state = GameState.new()
     state.nextPiece = 2

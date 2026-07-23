@@ -32,7 +32,8 @@ function AppView:showCover(actions,user)
     button(g,"遊戲開始",250,285,actions.start)
     button(g,"遊戲介紹",250,370,actions.intro)
     button(g,"排行榜／帳號",250,455,actions.leaderboard)
-    button(g,"退出遊戲",250,540,actions.exit)
+    button(g,"APP 資訊",250,540,actions.info)
+    button(g,"退出遊戲",250,625,actions.exit)
 end
 function AppView:showIntro(back)
     local g=self:_screen("遊戲介紹")
@@ -43,16 +44,39 @@ function AppView:showIntro(back)
     end
     button(g,"返回",250,790,back,150,48)
 end
+function AppView:showAppInfo(info,model,actions)
+    local g=self:_screen("APP 資訊")
+    button(g,"遊戲 GitHub",140,155,actions.repository,190,50)
+    button(g,"問題回報區",360,155,actions.issues,190,50)
+    local release=model.items[1]
+    text(g,"版本 "..release.version,250,250,24,ACCENT)
+    local lines={}
+    for _,item in ipairs(release.bullets) do lines[#lines+1]="• "..item end
+    text(g,table.concat(lines,"\n"),250,370,18,BRIGHT)
+    if model.hasPrevious then button(g,"較新版本",120,585,actions.previous,150,46) end
+    text(g,string.format("%d / %d",model.page,model.totalPages),250,585,18,ACCENT)
+    if model.hasNext then button(g,"較舊版本",380,585,actions.next,150,46) end
+    button(g,"作者 GitHub：xixa3333",250,680,actions.author,300,50)
+    button(g,"返回封面",250,775,actions.back,170,48)
+end
 function AppView:showAuth(actions)
     local g=self:_screen("登入排行榜")
-    text(g,"電子郵件是唯一帳號",250,155,19,CYAN)
-    local email=native.newTextField(250,245,370,50); email.placeholder="電子郵件帳號"; email.inputType="email"
+    text(g,"帳號 ID 具有唯一性（3～20 字元）",250,155,19,CYAN)
+    local account=native.newTextField(250,245,370,50); account.placeholder="帳號 ID"; account.inputType="default"
     local password=native.newTextField(250,315,370,50); password.placeholder="密碼（至少 6 個字元）"; password.isSecure=true
-    self.fields={email,password}; self.status=text(g,"",250,380,17,{1,0.65,0.35})
-    button(g,"登入",155,465,function() actions.login(email.text,password.text) end,150)
-    button(g,"註冊",345,465,function() actions.register(email.text,password.text) end,150)
-    button(g,"忘記密碼",250,550,function() actions.forgot(email.text) end,190)
+    self.fields={account,password}; self.status=text(g,"",250,380,17,{1,0.65,0.35})
+    button(g,"登入",155,465,function() actions.login(account.text,password.text) end,150)
+    button(g,"註冊",345,465,function() actions.register(account.text,password.text) end,150)
+    button(g,"舊信箱忘記密碼",250,550,function() actions.forgot(account.text) end,220)
     button(g,"返回",250,635,actions.back,150)
+end
+function AppView:showAccountChange(save,back)
+    local g=self:_screen("修改帳號 ID")
+    text(g,"新 ID 必須唯一，修改後請用新 ID 登入",250,190,18,BRIGHT)
+    local account=native.newTextField(250,285,370,50); account.placeholder="新帳號 ID"; account.inputType="default"
+    self.fields={account}; self.status=text(g,"",250,355,17,{1,0.65,0.35})
+    button(g,"儲存帳號 ID",250,455,function() save(account.text) end)
+    button(g,"返回",250,550,back)
 end
 function AppView:setStatus(value) if self.status then self.status.text=value end end
 function AppView:showNickname(save,back)
@@ -73,11 +97,21 @@ function AppView:showPasswordChange(save,back)
 end
 function AppView:showLeaderboard(title,model,actions,canDelete)
     local g=self:_screen(title)
-    button(g,"本機",80,150,actions.localTab,100); button(g,"全球",190,150,actions.globalTab,100)
-    button(g,"暱稱",300,150,actions.nickname,100); button(g,"密碼",410,150,actions.password,100)
+    button(g,"本機",46,150,actions.localTab,82); button(g,"全球",148,150,actions.globalTab,82)
+    button(g,"帳號",250,150,actions.account,82); button(g,"暱稱",352,150,actions.nickname,82)
+    button(g,"密碼",454,150,actions.password,82)
+    if model.ownRank then
+        local rankBackground=display.newRoundedRect(g,250,202,310,34,10)
+        rankBackground:setFillColor(0.12,0.34,0.52)
+        text(g,"我的全球名次：第 "..model.ownRank.." 名",250,202,17,BRIGHT)
+    end
     if model.totalCount==0 then text(g,"目前沒有紀錄",250,290,20,BRIGHT) end
     for i,record in ipairs(model.items) do
         local y=200+i*44
+        if record.isCurrent then
+            local rowBackground=display.newRoundedRect(g,245,y,470,38,8)
+            rowBackground:setFillColor(0.12,0.34,0.52)
+        end
         text(g,string.format("%d. %s   %d 分",model.firstRank+i-1,record.nickname or record.account or "玩家",record.score),205,y,17,BRIGHT)
         if canDelete then
             local selectedRecord=record

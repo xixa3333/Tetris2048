@@ -8,7 +8,8 @@ M.BlockImage = {
     "image/square.png",
     "image/Z.png",
     "image/S.png",
-    "image/I.png"
+    "image/I.png",
+    "image/L.png"
 }
 
 M.tetrominoes = {
@@ -16,7 +17,8 @@ M.tetrominoes = {
     {{2, 2}, {2, 2}},        -- 方形
     {{0, 3, 3}, {3, 3, 0}},  -- Z形
     {{4, 4, 0}, {0, 4, 4}},  -- S形
-    {{5, 5, 5, 5}}           -- I形
+    {{5, 5, 5, 5}},           -- I形
+    {{6, 0, 0}, {6, 0, 0}, {6, 6, 0}} -- L shape, fixed 3x3 matrix
 }
 
 return M
