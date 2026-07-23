@@ -45,6 +45,14 @@ function AppView:showCover(actions,user)
         font=native.systemFontBold,fontSize=15})
     version.anchorX=1; version:setTextColor(CYAN[1],CYAN[2],CYAN[3])
 end
+function AppView:showModeSelect(start,back)
+    local g=self:_screen("選擇模式")
+    text(g,"模式1：經典連色模式\n同色相連會合併成同一物件，策略性較高。",250,185,19,BRIGHT)
+    button(g,"模式1：經典",250,300,function() start(1) end,250,58)
+    text(g,"模式2：輕鬆物件模式\n同色相鄰仍保持不同物件，操作更直覺。",250,430,19,BRIGHT)
+    button(g,"模式2：輕鬆",250,545,function() start(2) end,250,58)
+    button(g,"返回主畫面",250,720,back,190,50)
+end
 function AppView:showSettings(model,save,back)
     -- Keep the settings screen on the same 500 x 850 layout grid as the cover.
     -- config.lua letterboxes this grid on every device, preventing controls from drifting.
@@ -96,7 +104,7 @@ function AppView:showAuth(actions)
     self.fields={account,password}; self.status=text(g,"",250,380,17,{1,0.65,0.35})
     button(g,"登入",155,465,function() actions.login(account.text,password.text) end,150)
     button(g,"註冊",345,465,function() actions.register(account.text,password.text) end,150)
-    button(g,"舊信箱忘記密碼",250,550,function() actions.forgot(account.text) end,220)
+    button(g,"忘記密碼",250,550,function() actions.forgot(account.text) end,220)
     button(g,"返回",250,635,actions.back,150)
 end
 function AppView:showAccountInfo(account,back)
@@ -136,14 +144,17 @@ function AppView:showLeaderboard(title,model,actions,canDelete)
     button(g,"本機",46,150,actions.localTab,82); button(g,"全球",148,150,actions.globalTab,82)
     button(g,actions.accountLabel or "帳號 ID",250,150,actions.account,82); button(g,"暱稱",352,150,actions.nickname,82)
     button(g,"密碼",454,150,actions.password,82)
+    button(g,"模式1",115,190,actions.mode1,120,38)
+    button(g,"模式2",250,190,actions.mode2,120,38)
+    text(g,"目前：模式"..(model.mode or 1),385,190,16,ACCENT)
     if model.ownRank then
-        local rankBackground=display.newRoundedRect(g,250,202,310,34,10)
+        local rankBackground=display.newRoundedRect(g,250,230,310,34,10)
         rankBackground:setFillColor(0.12,0.34,0.52)
-        text(g,"我的全球名次：第 "..model.ownRank.." 名",250,202,17,BRIGHT)
+        text(g,"我的全球名次：第 "..model.ownRank.." 名",250,230,17,BRIGHT)
     end
-    if model.totalCount==0 then text(g,"目前沒有紀錄",250,290,20,BRIGHT) end
+    if model.totalCount==0 then text(g,"目前沒有紀錄",250,310,20,BRIGHT) end
     for i,record in ipairs(model.items) do
-        local y=200+i*44
+        local y=240+i*40
         if record.isCurrent then
             local rowBackground=display.newRoundedRect(g,245,y,470,38,8)
             rowBackground:setFillColor(0.12,0.34,0.52)

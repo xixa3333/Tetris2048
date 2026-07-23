@@ -66,11 +66,35 @@ test("Assets: every configured block image exists including the blue L tile", ()
   }
 });
 
+test("UX: tile image borders stay thin so object outlines carry emphasis", () => {
+  const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+  for (const name of ["T.png", "square.png", "Z.png", "S.png", "I.png", "L.png", "space.png"]) {
+    const data = fs.readFileSync(`../src/image/${name}`);
+    assert(data.subarray(0, 4).equals(pngSignature), `${name} is not a PNG`);
+    assert(data.length < 1400, `${name} likely contains a thick baked border again`);
+  }
+});
+
 test("Architecture: renderer owns separate animation and overlay groups", () => {
   const contents = read("../src/ui_renderer.lua");
   for (const token of ["animationGroup", "overlayGroup", "clearTransient"]) {
     assert(contents.includes(token), `renderer is missing ${token}`);
   }
+});
+
+test("UX: occupied block cells render thin inner lines and stronger object outlines", () => {
+  const contents = read("../src/ui_renderer.lua");
+  for (const token of ["createFrameGrid", "drawObjectOutlines", "objectGrid", "INNER_STROKE = 1", "OUTER_STROKE = 5"]) {
+    assert(contents.includes(token), `block frame rendering is missing ${token}`);
+  }
+});
+
+test("Mobile: Android builds declare internet permission for update checks", () => {
+  const contents = read("../src/build.settings");
+  assert(contents.includes("usesPermissions"), "Android permissions table is missing");
+  assert(contents.includes('"android.permission.INTERNET"'), "Android internet permission is missing");
+  const versionLine = contents.split("\n").find((line) => line.includes("versionCode")) || "";
+  assert(!versionLine.includes("usesPermissions"), "usesPermissions was swallowed by the versionCode line");
 });
 
 test("Architecture: app flow depends on injected service contracts", () => {
@@ -81,6 +105,15 @@ test("Architecture: app flow depends on injected service contracts", () => {
   for (const forbidden of ["display.", "native.", "network.", 'require("widget")']) {
     assert(!contents.includes(forbidden), `app controller contains platform dependency ${forbidden}`);
   }
+});
+
+test("UX: game start routes through an explicit mode selection screen", () => {
+  const app = read("../src/app_controller.lua");
+  const view = read("../src/app_view.lua");
+  const game = read("../src/game_controller.lua");
+  assert(app.includes("showModeSelect"), "app controller is missing mode selection flow");
+  assert(view.includes("function AppView:showModeSelect"), "view is missing mode selection screen");
+  assert(game.includes("function GameController:setMode"), "game controller cannot receive selected mode");
 });
 
 test("Architecture: settings and seeded randomness remain pure services", () => {

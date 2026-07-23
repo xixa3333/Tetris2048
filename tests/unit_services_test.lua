@@ -30,6 +30,16 @@ T.test("Local leaderboard ignores zero scores and floors positive decimals",func
     T.equal(board:add("u","u@example.com",12.9,2).score,12)
 end)
 
+T.test("Local leaderboard separates modes and keeps legacy records in mode one",function()
+    local board=LocalLeaderboard.new(memoryStorage())
+    board:add("u","player",10,1)
+    board:add("u","player",20,2,2)
+    T.equal(#board:listAll(1),1)
+    T.equal(board:listAll(1)[1].score,10)
+    T.equal(#board:listAll(2),1)
+    T.equal(board:listAll(2)[1].score,20)
+end)
+
 T.test("Auth validates input before network access",function()
     local http={calls=0}; function http:request() self.calls=self.calls+1 end
     local auth=AuthService.new(http,{apiKey="test"}); local message

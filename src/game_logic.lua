@@ -48,10 +48,14 @@ function GameLogic.findPlacements(state, piece, rotation)
 end
 
 function GameLogic.placeRandomPiece(state, random)
+    state.gameOverPiece = nil
+    state.gameOverRotation = 0
     local placements = GameLogic.findPlacements(state, state.currentPiece, state.rotation)
     -- Rotation is a player decision. Exhaust every coordinate for the selected
     -- orientation, but never rotate automatically just to avoid game over.
     if #placements == 0 then
+        state.gameOverPiece = state.currentPiece
+        state.gameOverRotation = state.rotation
         state.isGameOver = true
         return false
     end
@@ -61,23 +65,31 @@ function GameLogic.placeRandomPiece(state, random)
     for offset = 0, #placements - 1 do
         local index = ((firstIndex + offset - 1) % #placements) + 1
         local placement = placements[index]
-        local placed, cells = Board.tryPlace(state.grid, placement.shape, placement.row, placement.column)
-        if placed then return true, cells, placement.rotation end
+        local objectId = state.nextObjectId or 1
+        local placed, cells = Board.tryPlace(state.grid, placement.shape, placement.row, placement.column, state.objectGrid, objectId)
+        if placed then
+            state.nextObjectId = objectId + 1
+            return true, cells, placement.rotation
+        end
     end
     state.isGameOver = true
+    state.gameOverPiece = state.currentPiece
+    state.gameOverRotation = state.rotation
     return false
 end
 
 -- Turn rules are split into phases so a controller can animate each state
 -- transition without coupling these rules to Solar2D timers or display objects.
 function GameLogic.moveBlocks(state, direction)
-    local grid, moves = Board.slideWithMoves(state.grid, direction)
+    local trackingGrid = state.mode == 2 and state.objectGrid or nil
+    local grid, moves, objectGrid = Board.slideWithMoves(state.grid, direction, trackingGrid)
     state.grid = grid
-    return {moves = moves}
+    if state.mode == 2 then state.objectGrid = objectGrid or state.objectGrid end
+    return {moves = moves, objectGrid = state.objectGrid}
 end
 
 function GameLogic.clearCompleted(state)
-    local cleared = Board.clearCompletedLines(state.grid)
+    local cleared = Board.clearCompletedLines(state.grid, state.objectGrid)
     state.score = state.score + cleared.lineCount * 10
     return cleared
 end

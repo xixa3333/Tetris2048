@@ -15,6 +15,35 @@ T.test("Board.canPlace rejects collisions and out-of-bounds cells", function()
     T.equal(Board.canPlace(grid, {{1}}, 4, 1), false)
 end)
 
+T.test("Board.slide keeps touching same-colored object ids separate", function()
+    local grid = Board.new(4, 4)
+    local objects = Board.new(4, 4)
+    grid[2][2], objects[2][2] = 1, 101
+    grid[2][3], objects[2][3] = 1, 102
+    local moved, _, movedObjects = Board.slideWithMoves(grid, "right", objects)
+    T.equal(moved[2][3], 1)
+    T.equal(moved[2][4], 1)
+    T.equal(movedObjects[2][3], 101)
+    T.equal(movedObjects[2][4], 102)
+end)
+
+T.test("Board.slide splits one object when line clearing cuts it apart", function()
+    local grid = Board.new(5, 5)
+    local objects = Board.new(5, 5)
+    grid[2][3], objects[2][3] = 3, 201
+    grid[3][3], objects[3][3] = 3, 201
+    grid[4][3], objects[4][3] = 3, 201
+    for column = 1, 5 do
+        if column ~= 3 then grid[3][column], objects[3][column] = 9, 900 + column end
+    end
+    Board.clearCompletedLines(grid, objects)
+    local moved, _, movedObjects = Board.slideWithMoves(grid, "left", objects)
+    T.equal(moved[2][1], 3)
+    T.equal(moved[4][1], 3)
+    T.equal(movedObjects[2][1], 201)
+    T.equal(movedObjects[4][1], 201)
+end)
+
 T.test("Board.tryPlace never partially writes over an occupied cell", function()
     local grid = Board.new(3, 3)
     grid[1][2] = 9

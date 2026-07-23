@@ -22,11 +22,15 @@ function AppController:restoreLogin()
 end
 function AppController:showCover()
     self.screen="cover"; self.game.view:setVisible(false)
-    self.view:showCover({start=function() self:startGame() end,intro=function() self:showIntro() end,
+    self.view:showCover({start=function() self:showModeSelect() end,intro=function() self:showIntro() end,
         leaderboard=function() self:openLeaderboard() end,info=function() self:showAppInfo() end,
         settings=function() self:showSettings() end,
         exit=function() self.platform:exit() end,
         version=self.info.currentVersion},self.auth:currentUser())
+end
+function AppController:showModeSelect()
+    self.screen="modeSelect"
+    self.view:showModeSelect(function(mode) self:startGame(mode) end,function() self:showCover() end)
 end
 function AppController:showSettings()
     self.screen="settings"
@@ -34,7 +38,9 @@ function AppController:showSettings()
         self.settings:update(value); self:showCover()
     end,function() self:showCover() end)
 end
-function AppController:startGame()
+function AppController:startGame(mode)
+    self.currentMode=tonumber(mode)==2 and 2 or 1
+    if self.game.setMode then self.game:setMode(self.currentMode) end
     self.screen="game"; self.view:hide(); self.game.view:setVisible(true); self.game:start()
 end
 function AppController:showIntro()
@@ -130,33 +136,52 @@ function AppController:_actions()
     return {localTab=function() self:showLocalLeaderboard(1) end,globalTab=function() self:showGlobalLeaderboard(1) end,
         account=function() self:showAccountInfo() end,accountLabel="帳號 ID",nickname=function() self:showNicknameSetup() end,
         password=function() self:showPasswordChange() end,
+        mode1=function() self:switchLeaderboardMode(1) end,
+        mode2=function() self:switchLeaderboardMode(2) end,
         logout=function() self.auth:signOut(); self:showCover() end,back=function() self:showCover() end}
+end
+function AppController:switchLeaderboardMode(mode)
+    self.currentMode=tonumber(mode)==2 and 2 or 1
+    if self.screen=="globalLeaderboard" then self:showGlobalLeaderboard(1) else self:showLocalLeaderboard(1) end
 end
 function AppController:showLocalLeaderboard(page)
     self.screen="localLeaderboard"; local actions=self:_actions()
-    local model=Pagination.page(self.localBoard:listAll(),page or self.localPage,10); self.localPage=model.page
+    local mode=self.currentMode or 1
+    local model=Pagination.page(self.localBoard:listAll(mode),page or self.localPage,10); self.localPage=model.page
+    model.mode=mode
     actions.previous=function() self:showLocalLeaderboard(self.localPage-1) end
     actions.next=function() self:showLocalLeaderboard(self.localPage+1) end
     actions.delete=function(record) self.localBoard:remove(record.uid,record.id); self:showLocalLeaderboard(self.localPage) end
-    self.view:showLeaderboard("本機排行榜",model,actions,true)
+    self.view:showLeaderboard("本機排行榜 - 模式"..mode,model,actions,true)
 end
 function AppController:showGlobalLeaderboard(page)
     self.screen="globalLeaderboard"; self.view:showLoading("讀取全球排行榜…")
+    local mode=self.currentMode or 1
+    local function loadGlobal()
     self.globalBoard:list(function(ok,records,ownRank)
         if ok then
             local model=Pagination.page(records,page or self.globalPage,10); self.globalPage=model.page
-            model.ownRank=ownRank
+            model.ownRank=ownRank; model.mode=mode
             local actions=self:_actions()
             actions.previous=function() self:showGlobalLeaderboard(self.globalPage-1) end
             actions.next=function() self:showGlobalLeaderboard(self.globalPage+1) end
-            self.view:showLeaderboard("全球排行榜",model,actions,false)
+            self.view:showLeaderboard("全球排行榜 - 模式"..mode,model,actions,false)
         else self.view:showError("全球排行榜讀取失敗",function() self:showCover() end) end
-    end)
+    end,mode)
+    end
+    local user=self.auth:currentUser()
+    local localRecords=user and self.localBoard.list and self.localBoard:list(user.uid,mode) or {}
+    if localRecords[1] and localRecords[1].score and localRecords[1].score>0 then
+        self.globalBoard:add(localRecords[1].score,function() loadGlobal() end,mode)
+    else
+        loadGlobal()
+    end
 end
 function AppController:onGameOver(score)
     local user=self.auth:currentUser(); if not user then return end
-    if (tonumber(score) or 0)>0 then self.localBoard:add(user.uid,user.nickname,score,self.clock()) end
-    self.globalBoard:add(score,function() end)
+    local mode=self.currentMode or 1
+    if (tonumber(score) or 0)>0 then self.localBoard:add(user.uid,user.nickname,score,self.clock(),mode) end
+    self.globalBoard:add(score,function() end,mode)
 end
 function AppController:onSuspend()
     if self.screen=="game" then self.game:pause() end

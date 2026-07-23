@@ -1,12 +1,13 @@
 -- Static metadata shared by the controller, view and tests.
 return {
-    currentVersion = "2.3.8",
+    currentVersion = "2.3.9",
     repositoryUrl = "https://github.com/xixa3333/Tetris2048",
     issuesUrl = "https://github.com/xixa3333/Tetris2048/issues",
     authorUrl = "https://github.com/xixa3333",
     latestReleaseUrl = "https://github.com/xixa3333/Tetris2048/releases/latest",
     latestReleaseApiUrl = "https://api.github.com/repos/xixa3333/Tetris2048/releases/latest",
     versions = {
+        {version="2.3.9", bullets={"新增模式1與模式2選擇", "模式1保留 2.3.8 同色合併規則", "模式2保留 2.3.9 獨立物件規則", "本機與全球排行榜依模式分開", "移動動畫期間未移動物件外框會保留"}},
         {version="2.3.8", bullets={"修正建立與修改暱稱失敗", "Firestore 路徑改用相容 URL 編碼", "暱稱按 Unicode 字元計算", "錯誤訊息會顯示真正失敗原因"}},
         {version="2.3.7", bullets={"新增設定、音量與可重現關卡種子", "設定頁統一封面版面並顯示目前版本", "完整搜尋目前旋轉方向的合法落點", "啟動時自動提示 GitHub 最新版本"}},
         {version="2.3.6", bullets={"修正帳號 ID 轉換失敗", "新 ID 建立後永久不可修改", "舊信箱可一次性轉移暱稱與最高分", "維持 Firebase 免費方案，不使用 Cloud Functions"}},

@@ -73,9 +73,54 @@ function Board.canPlace(grid, shape, top, left)
     return true
 end
 
+local ORTHOGONAL_NEIGHBORS = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}}
+
+local function shapeOccupies(shape)
+    local occupied = {}
+    for row = 1, #shape do
+        for column = 1, #shape[row] do
+            if shape[row][column] ~= 0 then
+                occupied[row .. ":" .. column] = true
+            end
+        end
+    end
+    return occupied
+end
+
+-- Placement difficulty rule: a new piece should not touch an existing board
+-- cell with the same color. Cells inside the same falling piece are allowed to
+-- touch because they are one object; if a later clear splits them, sliding sees
+-- those remaining islands as separate connected components.
+function Board.hasAdjacentSameColor(grid, shape, top, left)
+    local occupied = shapeOccupies(shape)
+    for row = 1, #shape do
+        for column = 1, #shape[row] do
+            local value = shape[row][column]
+            if value ~= 0 then
+                local targetRow, targetColumn = top + row - 1, left + column - 1
+                for _, offset in ipairs(ORTHOGONAL_NEIGHBORS) do
+                    local localRow, localColumn = row + offset[1], column + offset[2]
+                    if not occupied[localRow .. ":" .. localColumn] then
+                        local boardRow, boardColumn = targetRow + offset[1], targetColumn + offset[2]
+                        if grid[boardRow] and grid[boardRow][boardColumn] == value then
+                            return true
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return false
+end
+
+function Board.canPlaceSeparated(grid, shape, top, left)
+    return Board.canPlace(grid, shape, top, left)
+        and not Board.hasAdjacentSameColor(grid, shape, top, left)
+end
+
 -- Transactional placement: validate every occupied target before writing any cell.
 -- Returning false leaves the grid byte-for-byte unchanged.
-function Board.tryPlace(grid, shape, top, left)
+function Board.tryPlace(grid, shape, top, left, objectGrid, objectId)
     local targets = {}
     for row = 1, #shape do
         for column = 1, #shape[row] do
@@ -94,16 +139,17 @@ function Board.tryPlace(grid, shape, top, left)
     end
     for _, target in ipairs(targets) do
         grid[target.row][target.column] = target.value
+        if objectGrid then objectGrid[target.row][target.column] = objectId end
     end
     return true, targets
 end
 
-function Board.place(grid, shape, top, left)
-    assert(Board.tryPlace(grid, shape, top, left), "cannot place shape at requested position")
+function Board.place(grid, shape, top, left, objectGrid, objectId)
+    assert(Board.tryPlace(grid, shape, top, left, objectGrid, objectId), "cannot place shape at requested position")
 end
 
 -- 尋找所有同色且上下左右相連的元件。
-local function connectedComponents(grid)
+local function connectedComponents(grid, objectGrid)
     local visited, components = Board.new(#grid, #grid[1], false), {}
     local neighbors = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}}
 
@@ -111,6 +157,7 @@ local function connectedComponents(grid)
         for column = 1, #grid[row] do
             if grid[row][column] ~= 0 and not visited[row][column] then
                 local value = grid[row][column]
+                local objectId = objectGrid and objectGrid[row][column] or nil
                 local queue, component, cursor = {{row = row, column = column}}, {}, 1
                 visited[row][column] = true
 
@@ -120,16 +167,21 @@ local function connectedComponents(grid)
                     component[#component + 1] = cell
                     for _, offset in ipairs(neighbors) do
                         local nextRow, nextColumn = cell.row + offset[1], cell.column + offset[2]
-                        if grid[nextRow]
+                        local sameObject = objectGrid
+                            and objectGrid[nextRow]
+                            and objectGrid[nextRow][nextColumn] ~= 0
+                            and objectGrid[nextRow][nextColumn] == objectId
+                        local sameLegacyColor = not objectGrid
+                            and grid[nextRow]
                             and grid[nextRow][nextColumn] == value
-                            and not visited[nextRow][nextColumn] then
+                        if (sameObject or sameLegacyColor) and not visited[nextRow][nextColumn] then
                             visited[nextRow][nextColumn] = true
                             queue[#queue + 1] = {row = nextRow, column = nextColumn}
                         end
                     end
                 end
 
-                components[#components + 1] = {value = value, cells = component}
+                components[#components + 1] = {value = value, objectId = objectId, cells = component}
             end
         end
     end
@@ -137,9 +189,9 @@ local function connectedComponents(grid)
 end
 
 -- 將每個相連元件沿指定方向滑到底；元件形狀在移動中保持不變。
-function Board.slideWithMoves(grid, direction)
+function Board.slideWithMoves(grid, direction, objectGrid)
     local delta = assert(DIRECTIONS[direction], "unknown direction: " .. tostring(direction))
-    local components = connectedComponents(grid)
+    local components = connectedComponents(grid, objectGrid)
 
     local function frontEdge(component)
         local edge
@@ -199,19 +251,24 @@ function Board.slideWithMoves(grid, direction)
         end
     until not movedInPass
 
-    local result, moves = Board.new(#grid, #grid[1]), {}
+    local result = Board.new(#grid, #grid[1])
+    local resultObjects = objectGrid and Board.new(#grid, #grid[1]) or nil
+    local moves = {}
     for _, component in ipairs(components) do
         for _, cell in ipairs(component.cells) do
             result[cell.row][cell.column] = component.value
+            if resultObjects then resultObjects[cell.row][cell.column] = component.objectId end
             moves[#moves + 1] = {
                 fromRow = cell.fromRow, fromColumn = cell.fromColumn,
                 toRow = cell.row, toColumn = cell.column,
-                value = component.value
+                value = component.value,
+                objectId = component.objectId,
+                componentId = component.id
             }
         end
     end
 
-    return result, moves
+    return result, moves, resultObjects
 end
 
 function Board.slide(grid, direction)
@@ -220,7 +277,7 @@ function Board.slide(grid, direction)
 end
 
 -- 清除完整橫列與直行。交叉格只回報一次，分數仍以線數計算。
-function Board.clearCompletedLines(grid)
+function Board.clearCompletedLines(grid, objectGrid)
     local fullRows, fullColumns, cleared = {}, {}, {}
     for row = 1, #grid do
         local full = true
@@ -243,6 +300,7 @@ function Board.clearCompletedLines(grid)
             seen[key] = true
             cleared[#cleared + 1] = {row = row, column = column}
             grid[row][column] = 0
+            if objectGrid then objectGrid[row][column] = 0 end
         end
     end
     for _, column in ipairs(fullColumns) do
@@ -250,6 +308,7 @@ function Board.clearCompletedLines(grid)
             local key = row .. ":" .. column
             if not seen[key] then cleared[#cleared + 1] = {row = row, column = column} end
             grid[row][column] = 0
+            if objectGrid then objectGrid[row][column] = 0 end
         end
     end
     return {rows = fullRows, columns = fullColumns, cells = cleared, lineCount = #fullRows + #fullColumns}

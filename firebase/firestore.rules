@@ -8,7 +8,7 @@ service cloud.firestore {
 
     function validScore() {
       return request.resource.data.keys().hasOnly([
-          'uid', 'nickname', 'score', 'updatedAt', 'version'
+          'uid', 'nickname', 'score', 'updatedAt', 'version', 'mode'
         ])
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.score is int
@@ -19,15 +19,17 @@ service cloud.firestore {
         && request.resource.data.nickname.size() <= 16
         && request.resource.data.updatedAt is timestamp
         && request.resource.data.updatedAt <= request.time
-        && request.resource.data.version is string;
+        && request.resource.data.version is string
+        && request.resource.data.mode is int
+        && request.resource.data.mode in [1, 2];
     }
 
     match /scores/{userId} {
       allow read: if signedIn();
-      allow create: if signedIn() && userId == request.auth.uid && validScore();
-      allow update: if signedIn() && userId == request.auth.uid && validScore()
+      allow create: if signedIn() && (userId == request.auth.uid || userId == request.auth.uid + '_mode2') && validScore();
+      allow update: if signedIn() && (userId == request.auth.uid || userId == request.auth.uid + '_mode2') && validScore()
         && request.resource.data.score >= resource.data.score;
-      allow delete: if signedIn() && userId == request.auth.uid;
+      allow delete: if signedIn() && (userId == request.auth.uid || userId == request.auth.uid + '_mode2');
     }
 
     match /profiles/{userId} {

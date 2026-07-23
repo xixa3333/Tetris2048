@@ -1,19 +1,19 @@
 settings = {
     orientation = {
-        default = "portrait", -- 預設方向（"portrait" 或 "landscape"）
-        supported = { "portrait", "portraitUpsideDown" }, -- 支持的方向
+        default = "portrait",
+        supported = { "portrait", "portraitUpsideDown" },
     },
     android = {
-        versionCode = "15", -- Android 內部版本；每次發布必須遞增
+        versionCode = "16",
         usesPermissions = {
-            "android.permission.INTERNET", -- 使用網路權限
+            "android.permission.INTERNET",
         },
     },
     iphone = {
         plist = {
-            CFBundleShortVersionString = "1.0", -- iOS 版本號
-            UIStatusBarHidden = true, -- 隱藏狀態列
-            UILaunchStoryboardName = "LaunchScreen", -- 啟動畫面（可選）
+            CFBundleShortVersionString = "2.3.9",
+            UIStatusBarHidden = true,
+            UILaunchStoryboardName = "LaunchScreen",
         },
     },
 }

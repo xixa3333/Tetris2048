@@ -72,6 +72,10 @@ function GameController:restart()
     self:start()
 end
 
+function GameController:setMode(mode)
+    self.state.mode = tonumber(mode) == 2 and 2 or 1
+end
+
 function GameController:recordScoreOnce()
     if not self.scoreRecorded and self.onGameOver then
         self.scoreRecorded = true
@@ -115,7 +119,7 @@ function GameController:handle(command)
     self.state.isBusy = true
     local movement = self.logic.moveBlocks(self.state, command)
     if self.view.playMoveAnimation then
-        self.view:playMoveAnimation(movement.moves, self.timings.move)
+        self.view:playMoveAnimation(movement.moves, self.timings.move, self.state)
     end
     self:schedule(self.timings.move, function() self:afterMoveAnimation() end)
     return true

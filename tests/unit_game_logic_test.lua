@@ -63,6 +63,63 @@ T.test("GameLogic revalidates a stale landing position before placement", functi
     T.equal(state.grid[2][2], 2)
 end)
 
+T.test("GameLogic allows same-colored objects to touch without filtering legal placements", function()
+    local state = GameState.new()
+    state.currentPiece, state.rotation = 2, 0
+    state.grid[2][3] = 2
+    local placements = GameLogic.findPlacements(state, 2, 0)
+    local hasTouching = false
+    for _, placement in ipairs(placements) do
+        if Board.hasAdjacentSameColor(state.grid, placement.shape, placement.row, placement.column) then
+            hasTouching = true
+        end
+    end
+    T.equal(hasTouching, true)
+    T.equal(#placements > 0, true)
+end)
+
+T.test("GameLogic falls back to legal placement instead of game over when every fit touches same color", function()
+    local state = GameState.new()
+    for row = 1, 10 do
+        for column = 1, 10 do state.grid[row][column] = 9 end
+    end
+    state.grid[1][1], state.grid[1][2] = 0, 0
+    state.grid[2][1], state.grid[2][2] = 0, 0
+    state.grid[1][3] = 2
+    state.currentPiece, state.rotation = 2, 0
+    T.equal(GameLogic.placeRandomPiece(state, chooseFirst), true)
+    T.equal(state.isGameOver, false)
+end)
+
+T.test("GameLogic assigns a stable object id to every placed piece", function()
+    local state = GameState.new()
+    state.currentPiece, state.rotation = 2, 0
+    T.equal(GameLogic.placeRandomPiece(state, chooseFirst), true)
+    local firstId = state.objectGrid[1][1]
+    T.equal(firstId > 0, true)
+    T.equal(state.nextObjectId, firstId + 1)
+end)
+
+T.test("GameLogic mode one merges touching same colors while mode two keeps object ids separate", function()
+    local classic = GameState.new()
+    classic.mode = 1
+    classic.grid[2][2], classic.objectGrid[2][2] = 1, 101
+    classic.grid[2][3], classic.objectGrid[2][3] = 1, 102
+    GameLogic.moveBlocks(classic, "right")
+    T.equal(classic.grid[2][9], 1)
+    T.equal(classic.grid[2][10], 1)
+
+    local relaxed = GameState.new()
+    relaxed.mode = 2
+    relaxed.grid[2][2], relaxed.objectGrid[2][2] = 1, 101
+    relaxed.grid[2][3], relaxed.objectGrid[2][3] = 1, 102
+    GameLogic.moveBlocks(relaxed, "right")
+    T.equal(relaxed.grid[2][9], 1)
+    T.equal(relaxed.objectGrid[2][9], 101)
+    T.equal(relaxed.grid[2][10], 1)
+    T.equal(relaxed.objectGrid[2][10], 102)
+end)
+
 T.test("GameLogic does not replace the player's selected rotation", function()
     local state = GameState.new()
     for row = 1, 10 do
@@ -90,6 +147,21 @@ T.test("GameLogic finds a selected S shape in the final legal coordinate", funct
     T.equal(#cells, 4)
     T.equal(rotation, 0)
     T.equal(state.isGameOver, false)
+end)
+
+T.test("GameLogic keeps the failed placement piece visible on game over", function()
+    local state = GameState.new()
+    for row = 1, 10 do
+        for column = 1, 10 do state.grid[row][column] = 9 end
+    end
+    state.currentPiece, state.nextPiece, state.rotation = 1, 2, 1
+    local placement = GameLogic.placeQueuedPiece(state, function() return 3 end)
+    T.equal(placement.placed, false)
+    T.equal(state.isGameOver, true)
+    T.equal(state.gameOverPiece, 2)
+    T.equal(state.gameOverRotation, 1)
+    T.equal(state.nextPiece, 3)
+    T.equal(state.rotation, 0)
 end)
 
 T.test("GameLogic.move slides, scores a completed line, and advances queue", function()

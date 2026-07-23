@@ -10,22 +10,32 @@ function LocalLeaderboard:_all()
     return self.storage:load() or {}
 end
 
-function LocalLeaderboard:list(uid)
+local function recordMode(record)
+    return tonumber(record.mode) or 1
+end
+
+function LocalLeaderboard:list(uid, mode)
+    mode = tonumber(mode) or 1
     local records = self:_all()[uid] or {}
-    table.sort(records, function(a, b)
+    local filtered = {}
+    for _, record in ipairs(records) do
+        if recordMode(record) == mode then filtered[#filtered + 1] = record end
+    end
+    table.sort(filtered, function(a, b)
         if a.score == b.score then return a.playedAt > b.playedAt end
         return a.score > b.score
     end)
-    return records
+    return filtered
 end
 
-function LocalLeaderboard:listAll()
+function LocalLeaderboard:listAll(mode)
+    mode = tonumber(mode) or 1
     local records = {}
     for uid, accountRecords in pairs(self:_all()) do
         for _, record in ipairs(accountRecords) do
             -- Older saved records did not contain uid; recover it from their storage bucket.
             record.uid = record.uid or uid
-            records[#records + 1] = record
+            if recordMode(record) == mode then records[#records + 1] = record end
         end
     end
     table.sort(records, function(a, b)
@@ -35,14 +45,15 @@ function LocalLeaderboard:listAll()
     return records
 end
 
-function LocalLeaderboard:add(uid, account, score, playedAt)
+function LocalLeaderboard:add(uid, account, score, playedAt, mode)
     local normalizedScore = math.max(0, math.floor(tonumber(score) or 0))
     if normalizedScore == 0 then return nil end
     local all = self:_all()
     all[uid] = all[uid] or {}
     local record = {
         id = tostring(playedAt) .. "-" .. tostring(#all[uid] + 1),
-        uid = uid, account = account, score = normalizedScore, playedAt = playedAt
+        uid = uid, account = account, score = normalizedScore, playedAt = playedAt,
+        mode = tonumber(mode) == 2 and 2 or 1
     }
     all[uid][#all[uid] + 1] = record
     self.storage:save(all)
