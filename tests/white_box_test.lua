@@ -24,6 +24,18 @@ T.test("White-box: a zero inside a tetromino does not overwrite the board", func
     T.equal(grid[2][1], 9)
 end)
 
+T.test("White-box: every stale candidate fails without replacing existing colors", function()
+    local state = GameState.new()
+    state.currentPiece = 2
+    local function occupyBoard(minimum)
+        for row=1,10 do for column=1,10 do state.grid[row][column]=9 end end
+        return minimum
+    end
+    T.equal(GameLogic.placeRandomPiece(state,occupyBoard),false)
+    T.equal(state.isGameOver,true)
+    for row=1,10 do for column=1,10 do T.equal(state.grid[row][column],9) end end
+end)
+
 T.test("White-box: reserve resets rotation in both store and swap branches", function()
     local state = GameState.new()
     state.nextPiece, state.rotation = 2, 3

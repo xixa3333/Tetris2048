@@ -73,15 +73,33 @@ function Board.canPlace(grid, shape, top, left)
     return true
 end
 
-function Board.place(grid, shape, top, left)
-    assert(Board.canPlace(grid, shape, top, left), "cannot place shape at requested position")
+-- Transactional placement: validate every occupied target before writing any cell.
+-- Returning false leaves the grid byte-for-byte unchanged.
+function Board.tryPlace(grid, shape, top, left)
+    local targets = {}
     for row = 1, #shape do
         for column = 1, #shape[row] do
             if shape[row][column] ~= 0 then
-                grid[top + row - 1][left + column - 1] = shape[row][column]
+                local targetRow, targetColumn = top + row - 1, left + column - 1
+                if not grid[targetRow]
+                    or grid[targetRow][targetColumn] == nil
+                    or grid[targetRow][targetColumn] ~= 0 then
+                    return false
+                end
+                targets[#targets + 1] = {
+                    row = targetRow, column = targetColumn, value = shape[row][column]
+                }
             end
         end
     end
+    for _, target in ipairs(targets) do
+        grid[target.row][target.column] = target.value
+    end
+    return true
+end
+
+function Board.place(grid, shape, top, left)
+    assert(Board.tryPlace(grid, shape, top, left), "cannot place shape at requested position")
 end
 
 -- 尋找所有同色且上下左右相連的元件。

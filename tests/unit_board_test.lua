@@ -14,6 +14,14 @@ T.test("Board.canPlace rejects collisions and out-of-bounds cells", function()
     T.equal(Board.canPlace(grid, {{1}}, 4, 1), false)
 end)
 
+T.test("Board.tryPlace never partially writes over an occupied cell", function()
+    local grid = Board.new(3, 3)
+    grid[1][2] = 9
+    local before = Board.copy(grid)
+    T.equal(Board.tryPlace(grid, {{1, 1}}, 1, 1), false)
+    T.gridEqual(grid, before)
+end)
+
 T.test("Board.slide preserves a connected component while moving left", function()
     local grid = Board.new(4, 4)
     grid[2][3], grid[2][4], grid[3][3] = 1, 1, 1

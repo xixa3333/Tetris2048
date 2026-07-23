@@ -31,9 +31,17 @@ function GameLogic.placeRandomPiece(state, random)
         state.isGameOver = true
         return false
     end
-    local placement = placements[random(1, #placements)]
-    Board.place(state.grid, GameLogic.shapeFor(state.currentPiece, state.rotation), placement.row, placement.column)
-    return true
+    local shape = GameLogic.shapeFor(state.currentPiece, state.rotation)
+    local firstIndex = random(1, #placements)
+    -- Placements are a snapshot. Revalidate at commit time and try every candidate
+    -- once, so a stale candidate can never overwrite an occupied board cell.
+    for offset = 0, #placements - 1 do
+        local index = ((firstIndex + offset - 1) % #placements) + 1
+        local placement = placements[index]
+        if Board.tryPlace(state.grid, shape, placement.row, placement.column) then return true end
+    end
+    state.isGameOver = true
+    return false
 end
 
 function GameLogic.advanceQueue(state, random)
