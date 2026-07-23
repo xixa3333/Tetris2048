@@ -1,3 +1,4 @@
+local FirestoreUrl=require("firestore_url")
 local GlobalLeaderboard={}; GlobalLeaderboard.__index=GlobalLeaderboard
 local function field(value)
     if type(value)=="number" then return {integerValue=tostring(value)} end
@@ -11,7 +12,7 @@ local function decode(document)
         playedAt=f.updatedAt and f.updatedAt.timestampValue}
 end
 function GlobalLeaderboard.new(http,config,auth)
-    local base="https://firestore.googleapis.com/v1/projects/"..config.projectId.."/databases/(default)/documents"
+    local base=FirestoreUrl.documents(config.projectId)
     return setmetatable({http=http,auth=auth,base=base},GlobalLeaderboard)
 end
 function GlobalLeaderboard:_headers()
@@ -22,7 +23,7 @@ function GlobalLeaderboard:_write(user,score,callback)
     self.http:request("PATCH",self.base.."/scores/"..user.uid,{fields={
         uid=field(user.uid),nickname=field(user.nickname),
         score=field(math.floor(score)),updatedAt={timestampValue=os.date("!%Y-%m-%dT%H:%M:%SZ")},
-        version=field("2.3.5")
+        version=field("2.3.8")
     }},self:_headers(),callback)
 end
 function GlobalLeaderboard:add(score,callback)
