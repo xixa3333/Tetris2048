@@ -37,6 +37,44 @@ T.test("Boundary: every animation destination remains inside the board", functio
     end
 end)
 
+T.test("Boundary: randomized dense slides preserve every color", function()
+    local seed = 2048
+    local function random(maximum)
+        seed = (seed * 48271) % 2147483647
+        return (seed % maximum) + 1
+    end
+    local directions = {"up", "down", "left", "right"}
+    for iteration = 1, 250 do
+        local grid, before = Board.new(6, 6), {}
+        for row = 1, 6 do
+            for column = 1, 6 do
+                if random(100) <= 45 then
+                    local color = random(5)
+                    grid[row][column] = color
+                    before[color] = (before[color] or 0) + 1
+                end
+            end
+        end
+        local moved, moves = Board.slideWithMoves(grid, directions[random(4)])
+        local after, destinations = {}, {}
+        for _, move in ipairs(moves) do
+            local key = move.toRow .. ":" .. move.toColumn
+            T.equal(destinations[key], nil, "animation destinations overlap at iteration " .. iteration)
+            destinations[key] = true
+            T.equal(grid[move.fromRow][move.fromColumn], move.value)
+            T.equal(moved[move.toRow][move.toColumn], move.value)
+        end
+        for row = 1, 6 do for column = 1, 6 do
+            local color = moved[row][column]
+            if color ~= 0 then after[color] = (after[color] or 0) + 1 end
+        end end
+        for color = 1, 5 do
+            T.equal(after[color] or 0, before[color] or 0,
+                "random slide overwrote color at iteration " .. iteration)
+        end
+    end
+end)
+
 T.test("Boundary: placement accepts the bottom-right corner", function()
     local grid = Board.new(10, 10)
     T.equal(Board.canPlace(grid, {{1}}, 10, 10), true)

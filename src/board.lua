@@ -139,41 +139,73 @@ end
 -- 將每個相連元件沿指定方向滑到底；元件形狀在移動中保持不變。
 function Board.slideWithMoves(grid, direction)
     local delta = assert(DIRECTIONS[direction], "unknown direction: " .. tostring(direction))
-    local result = Board.new(#grid, #grid[1])
     local components = connectedComponents(grid)
 
+    local function frontEdge(component)
+        local edge
+        for _, cell in ipairs(component.cells) do
+            local coordinate = (direction == "up" or direction == "down") and cell.row or cell.column
+            if edge == nil
+                or ((direction == "down" or direction == "right") and coordinate > edge)
+                or ((direction == "up" or direction == "left") and coordinate < edge) then
+                edge = coordinate
+            end
+        end
+        return edge
+    end
+
+    for id, component in ipairs(components) do
+        component.id = id
+        for _, cell in ipairs(component.cells) do
+            cell.fromRow, cell.fromColumn = cell.row, cell.column
+        end
+    end
     table.sort(components, function(a, b)
-        local aCell, bCell = a.cells[1], b.cells[1]
-        if direction == "down" then return aCell.row > bCell.row end
-        if direction == "right" then return aCell.column > bCell.column end
-        if direction == "up" then return aCell.row < bCell.row end
-        return aCell.column < bCell.column
+        local aEdge, bEdge = frontEdge(a), frontEdge(b)
+        if aEdge == bEdge then return a.id < b.id end
+        if direction == "down" or direction == "right" then return aEdge > bEdge end
+        return aEdge < bEdge
     end)
 
-    local moves = {}
+    -- All components share one live occupancy map. Moving one cell per pass lets
+    -- trailing components follow vacated cells without ever entering a cell that
+    -- is still owned by another color/component.
+    local occupied = Board.new(#grid, #grid[1], false)
     for _, component in ipairs(components) do
-        local distance = 0
-        while true do
+        for _, cell in ipairs(component.cells) do occupied[cell.row][cell.column] = component end
+    end
+
+    local movedInPass
+    repeat
+        movedInPass = false
+        for _, component in ipairs(components) do
             local canMove = true
             for _, cell in ipairs(component.cells) do
-                local row = cell.row + delta.row * (distance + 1)
-                local column = cell.column + delta.column * (distance + 1)
-                if not result[row] or result[row][column] == nil or result[row][column] ~= 0 then
+                local row, column = cell.row + delta.row, cell.column + delta.column
+                local owner = occupied[row] and occupied[row][column]
+                if not occupied[row] or owner == nil or (owner and owner ~= component) then
                     canMove = false
                     break
                 end
             end
-            if not canMove then break end
-            distance = distance + 1
+            if canMove then
+                for _, cell in ipairs(component.cells) do occupied[cell.row][cell.column] = false end
+                for _, cell in ipairs(component.cells) do
+                    cell.row, cell.column = cell.row + delta.row, cell.column + delta.column
+                end
+                for _, cell in ipairs(component.cells) do occupied[cell.row][cell.column] = component end
+                movedInPass = true
+            end
         end
+    until not movedInPass
 
+    local result, moves = Board.new(#grid, #grid[1]), {}
+    for _, component in ipairs(components) do
         for _, cell in ipairs(component.cells) do
-            local targetRow = cell.row + delta.row * distance
-            local targetColumn = cell.column + delta.column * distance
-            result[targetRow][targetColumn] = component.value
+            result[cell.row][cell.column] = component.value
             moves[#moves + 1] = {
-                fromRow = cell.row, fromColumn = cell.column,
-                toRow = targetRow, toColumn = targetColumn,
+                fromRow = cell.fromRow, fromColumn = cell.fromColumn,
+                toRow = cell.row, toColumn = cell.column,
                 value = component.value
             }
         end
