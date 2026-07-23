@@ -47,6 +47,31 @@ T.test("Board.slideWithMoves reports every source and destination without losing
     T.equal(moved[2][2], 4)
 end)
 
+T.test("Board.slide never overwrites interleaved components", function()
+    local grid = {
+        {2,4,0,4,2,5},
+        {2,0,3,0,5,3},
+        {0,0,0,0,0,0},
+        {1,2,0,4,4,0},
+        {1,0,4,1,4,5},
+        {0,1,5,4,5,0}
+    }
+    local function colorCounts(board)
+        local counts = {}
+        for row = 1, #board do
+            for column = 1, #board[row] do
+                local value = board[row][column]
+                if value ~= 0 then counts[value] = (counts[value] or 0) + 1 end
+            end
+        end
+        return counts
+    end
+    local before = colorCounts(grid)
+    local moved = Board.slide(grid, "right")
+    local after = colorCounts(moved)
+    for color = 1, 5 do T.equal(after[color], before[color], "color was overwritten: " .. color) end
+end)
+
 T.test("Board.clearCompletedLines clears row and column intersections once", function()
     local grid = {
         {1, 1, 1},

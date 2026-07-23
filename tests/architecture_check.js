@@ -51,6 +51,13 @@ test("Architecture: turn phases remain separated between rules and animation orc
   }
 });
 
+test("Architecture: board sliding tracks a shared occupancy map", () => {
+  const contents = read("../src/board.lua");
+  for (const token of ["occupied", "frontEdge", "movedInPass"]) {
+    assert(contents.includes(token), `collision-safe slide is missing ${token}`);
+  }
+});
+
 test("Architecture: renderer owns separate animation and overlay groups", () => {
   const contents = read("../src/ui_renderer.lua");
   for (const token of ["animationGroup", "overlayGroup", "clearTransient"]) {
