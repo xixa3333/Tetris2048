@@ -150,6 +150,8 @@ T.test("Boundary: the 3x3 L piece has legal placements in every rotation", funct
         local shape = GameLogic.shapeFor(6, rotation)
         T.equal(#shape, 3)
         T.equal(#shape[1], 3)
-        T.equal(#GameLogic.findPlacements(state, 6, rotation), 64)
+        -- The preview remains 3x3, while its empty outer border does not waste
+        -- legal board positions during placement.
+        T.equal(#GameLogic.findPlacements(state, 6, rotation), 72)
     end
 end)

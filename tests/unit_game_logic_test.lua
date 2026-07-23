@@ -63,6 +63,35 @@ T.test("GameLogic revalidates a stale landing position before placement", functi
     T.equal(state.grid[2][2], 2)
 end)
 
+T.test("GameLogic does not replace the player's selected rotation", function()
+    local state = GameState.new()
+    for row = 1, 10 do
+        for column = 1, 10 do state.grid[row][column] = 9 end
+    end
+    -- A vertical T fits here, while the selected horizontal T does not.
+    state.grid[1][9], state.grid[2][9], state.grid[2][10], state.grid[3][9] = 0, 0, 0, 0
+    state.currentPiece, state.rotation = 1, 0
+    local placed = GameLogic.placeRandomPiece(state, chooseFirst)
+    T.equal(placed, false)
+    T.equal(state.isGameOver, true)
+end)
+
+T.test("GameLogic finds a selected S shape in the final legal coordinate", function()
+    local state = GameState.new()
+    for row = 1, 10 do
+        for column = 1, 10 do state.grid[row][column] = 9 end
+    end
+    -- The only legal position is the right-side gap shown by the reported case.
+    state.grid[3][8], state.grid[3][9] = 0, 0
+    state.grid[4][9], state.grid[4][10] = 0, 0
+    state.currentPiece, state.rotation = 4, 0
+    local placed, cells, rotation = GameLogic.placeRandomPiece(state, chooseFirst)
+    T.equal(placed, true)
+    T.equal(#cells, 4)
+    T.equal(rotation, 0)
+    T.equal(state.isGameOver, false)
+end)
+
 T.test("GameLogic.move slides, scores a completed line, and advances queue", function()
     local state = GameState.new()
     state.currentPiece, state.nextPiece = 1, 2

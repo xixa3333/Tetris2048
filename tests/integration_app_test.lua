@@ -14,8 +14,10 @@ local function build(signedIn)
     function auth:sendPasswordReset(_,callback) callback(true,"sent") end
     function auth:changePassword(_,callback) callback(true,"changed") end
     local view={screen=nil}; function view:showCover(actions) self.screen="cover";self.actions=actions end
+    function view:showUpdatePrompt(version,open) self.updateVersion=version;self.openUpdate=open end
     function view:showIntro(back) self.screen="intro";self.back=back end
     function view:showAppInfo(info,model,actions) self.screen="appInfo";self.info=info;self.model=model;self.actions=actions end
+    function view:showSettings(model,save,back) self.screen="settings";self.settings=model;self.saveSettings=save;self.back=back end
     function view:showAuth(actions) self.screen="auth";self.actions=actions end
     function view:showNickname(save,back) self.screen="nickname";self.saveNickname=save;self.back=back end
     function view:showPasswordChange(save,back) self.screen="password";self.savePassword=save;self.back=back end
@@ -49,16 +51,36 @@ local function build(signedIn)
     function migration:migrate(account,password,callback)
         auth.user={uid="new-u",account=account,nickname="測試玩家",isLegacy=false}; callback(true,"migrated")
     end
+    local settings={value={backgroundVolume=15,effectVolume=40,seed=""}}
+    function settings:get() return {backgroundVolume=self.value.backgroundVolume,effectVolume=self.value.effectVolume,seed=self.value.seed} end
+    function settings:update(value) self.value=value; return value end
+    local update={result={updateAvailable=false}}
+    function update:check(callback) callback(true,self.result) end
     local platform={exits=0,urls={}}; function platform:exit() self.exits=self.exits+1 end
     function platform:openURL(url) self.urls[#self.urls+1]=url; return true end
     return AppController.new({view=view,game=game,auth=auth,profile=profile,localBoard=localBoard,
-        globalBoard=global,migration=migration,platform=platform,info=AppInfo,clock=function() return 1 end}),view,game,localBoard,global,platform
+        globalBoard=global,migration=migration,settings=settings,update=update,platform=platform,info=AppInfo,clock=function() return 1 end}),view,game,localBoard,global,platform,update
 end
 
 T.test("Cover routes to game and intro without coupling game logic to screens",function()
     local app,view,game=build(false); app:start(); T.equal(view.screen,"cover")
     view.actions.intro(); T.equal(view.screen,"intro"); view.back(); T.equal(view.screen,"cover")
     view.actions.start(); T.equal(game.starts,1); T.equal(game.view.visible,true)
+end)
+
+T.test("Cover settings route persists volume and seed then returns to cover",function()
+    local app,view=build(false); app:start(); view.actions.settings()
+    T.equal(view.screen,"settings"); T.equal(view.settings.backgroundVolume,15)
+    view.saveSettings({backgroundVolume=55,effectVolume=70,seed="friends-01"})
+    T.equal(view.screen,"cover"); T.equal(app.settings:get().backgroundVolume,55)
+    T.equal(app.settings:get().seed,"friends-01")
+end)
+
+T.test("Startup update prompt opens only the trusted latest release link",function()
+    local app,view,_,_,_,platform,update=build(false)
+    update.result={updateAvailable=true,version="2.3.8",url=AppInfo.latestReleaseUrl}
+    app:start(); T.equal(view.updateVersion,"2.3.8")
+    view.openUpdate(); T.equal(platform.urls[1],AppInfo.latestReleaseUrl)
 end)
 
 T.test("Signed-in ID account is immutable and nickname remains independent",function()
@@ -76,17 +98,19 @@ T.test("Legacy email account is prompted once and migrates to an immutable ID",f
 end)
 
 T.test("Cover APP information routes through versions and safe GitHub links",function()
-    local app,view,_,_,_,platform=build(false); app:start(); view.actions.info()
-    T.equal(app.screen,"appInfo"); T.equal(view.model.items[1].version,"2.3.6")
+    local app,view,_,_,_,platform=build(false); app:start()
+    T.equal(view.actions.version,"2.3.7")
+    view.actions.info()
+    T.equal(app.screen,"appInfo"); T.equal(view.model.items[1].version,"2.3.7")
     view.actions.repository(); view.actions.issues(); view.actions.author()
     T.equal(platform.urls[1],"https://github.com/xixa3333/Tetris2048")
     T.equal(platform.urls[2],"https://github.com/xixa3333/Tetris2048/issues")
     T.equal(platform.urls[3],"https://github.com/xixa3333")
     T.equal(app:openExternal("https://example.com/phishing"),false)
     T.equal(#platform.urls,3)
-    view.actions.next(); T.equal(view.model.items[1].version,"2.3.5")
-    app:onResume(); T.equal(view.screen,"appInfo"); T.equal(view.model.items[1].version,"2.3.5")
-    view.actions.previous(); T.equal(view.model.items[1].version,"2.3.6")
+    view.actions.next(); T.equal(view.model.items[1].version,"2.3.6")
+    app:onResume(); T.equal(view.screen,"appInfo"); T.equal(view.model.items[1].version,"2.3.6")
+    view.actions.previous(); T.equal(view.model.items[1].version,"2.3.7")
     view.actions.back(); T.equal(view.screen,"cover")
 end)
 

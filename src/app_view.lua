@@ -16,6 +16,12 @@ local function button(group,value,x,y,action,width,height)
     group:insert(o); return o
 end
 function AppView.new() return setmetatable({fields={}},AppView) end
+function AppView:showUpdatePrompt(version,update)
+    native.showAlert("發現新版本","Tetris2048 v"..version.." 已發布，是否前往下載？",
+        {"前往下載","稍後"},function(event)
+            if event.action=="clicked" and event.index==1 then update() end
+        end)
+end
 function AppView:hide()
     for _,field in ipairs(self.fields) do remove(field) end
     self.fields={}; remove(self.group); self.group=nil; self.status=nil
@@ -29,11 +35,34 @@ function AppView:showCover(actions,user)
     local g=self:_screen("TETRIS 2048")
     text(g,"方塊 × 滑動 × 消除",250,145,21,CYAN)
     if user then text(g,"玩家："..(user.nickname or user.account),250,190,18,BRIGHT) end
-    button(g,"遊戲開始",250,285,actions.start)
-    button(g,"遊戲介紹",250,370,actions.intro)
-    button(g,"排行榜／帳號",250,455,actions.leaderboard)
-    button(g,"APP 資訊",250,540,actions.info)
-    button(g,"退出遊戲",250,625,actions.exit)
+    button(g,"遊戲開始",250,260,actions.start)
+    button(g,"遊戲介紹",250,335,actions.intro)
+    button(g,"排行榜／帳號",250,410,actions.leaderboard)
+    button(g,"APP 資訊",250,485,actions.info)
+    button(g,"設定",250,560,actions.settings)
+    button(g,"退出遊戲",250,635,actions.exit)
+    local version=display.newText({parent=g,text="v"..actions.version,x=475,y=825,
+        font=native.systemFontBold,fontSize=15})
+    version.anchorX=1; version:setTextColor(CYAN[1],CYAN[2],CYAN[3])
+end
+function AppView:showSettings(model,save,back)
+    -- Keep the settings screen on the same 500 x 850 layout grid as the cover.
+    -- config.lua letterboxes this grid on every device, preventing controls from drifting.
+    local g=self:_screen("設定")
+    local backgroundLabel=text(g,"背景音樂："..model.backgroundVolume.."%",250,165,21,BRIGHT)
+    local background=widget.newSlider({x=250,y=215,width=360,value=model.backgroundVolume,
+        listener=function(event) model.backgroundVolume=math.floor(event.value+0.5); backgroundLabel.text="背景音樂："..model.backgroundVolume.."%" end})
+    g:insert(background)
+    local effectLabel=text(g,"消除音效："..model.effectVolume.."%",250,290,21,BRIGHT)
+    local effect=widget.newSlider({x=250,y=340,width=360,value=model.effectVolume,
+        listener=function(event) model.effectVolume=math.floor(event.value+0.5); effectLabel.text="消除音效："..model.effectVolume.."%" end})
+    g:insert(effect)
+    text(g,"關卡種子",250,420,23,ACCENT)
+    text(g,"相同種子會重現相同的方塊與落點順序，\n適合和朋友挑戰同一關；留空就是一般隨機。",250,475,17,BRIGHT)
+    local seed=native.newTextField(250,555,360,50); seed.placeholder="留空＝隨機"; seed.text=model.seed or ""
+    self.fields={seed}
+    button(g,"儲存設定",250,655,function() model.seed=seed.text; save(model) end)
+    button(g,"取消",250,735,back,160)
 end
 function AppView:showIntro(back)
     local g=self:_screen("遊戲介紹")

@@ -1,12 +1,19 @@
 local Pagination=require("pagination")
 local AppController={}; AppController.__index=AppController
 function AppController.new(d)
-    assert(d.view and d.game and d.auth and d.profile and d.localBoard and d.globalBoard and d.migration and d.platform and d.info)
+    assert(d.view and d.game and d.auth and d.profile and d.localBoard and d.globalBoard and d.migration and d.settings and d.update and d.platform and d.info)
     return setmetatable({view=d.view,game=d.game,auth=d.auth,profile=d.profile,
-        localBoard=d.localBoard,globalBoard=d.globalBoard,migration=d.migration,platform=d.platform,info=d.info,
+        localBoard=d.localBoard,globalBoard=d.globalBoard,migration=d.migration,settings=d.settings,update=d.update,platform=d.platform,info=d.info,
         clock=d.clock or os.time,screen="boot",localPage=1,globalPage=1,infoPage=1},AppController)
 end
-function AppController:start() self:showCover() end
+function AppController:start()
+    self:showCover()
+    self.update:check(function(ok,result)
+        if ok and result.updateAvailable then
+            self.view:showUpdatePrompt(result.version,function() self:openExternal(result.url) end)
+        end
+    end)
+end
 function AppController:restoreLogin()
     self.auth:restoreSession(function(ok)
         if not ok then return end
@@ -17,7 +24,15 @@ function AppController:showCover()
     self.screen="cover"; self.game.view:setVisible(false)
     self.view:showCover({start=function() self:startGame() end,intro=function() self:showIntro() end,
         leaderboard=function() self:openLeaderboard() end,info=function() self:showAppInfo() end,
-        exit=function() self.platform:exit() end},self.auth:currentUser())
+        settings=function() self:showSettings() end,
+        exit=function() self.platform:exit() end,
+        version=self.info.currentVersion},self.auth:currentUser())
+end
+function AppController:showSettings()
+    self.screen="settings"
+    self.view:showSettings(self.settings:get(),function(value)
+        self.settings:update(value); self:showCover()
+    end,function() self:showCover() end)
 end
 function AppController:startGame()
     self.screen="game"; self.view:hide(); self.game.view:setVisible(true); self.game:start()
@@ -26,7 +41,7 @@ function AppController:showIntro()
     self.screen="intro"; self.view:showIntro(function() self:showCover() end)
 end
 function AppController:openExternal(url)
-    local allowed=url==self.info.repositoryUrl or url==self.info.issuesUrl or url==self.info.authorUrl
+    local allowed=url==self.info.repositoryUrl or url==self.info.issuesUrl or url==self.info.authorUrl or url==self.info.latestReleaseUrl
     if not allowed or type(url)~="string" or not url:match("^https://github%.com/") then return false end
     return self.platform:openURL(url)~=false
 end
@@ -151,6 +166,7 @@ function AppController:onResume()
         if self.screen=="game" then self.game:resume()
         elseif self.screen=="intro" then self:showIntro()
         elseif self.screen=="appInfo" then self:showAppInfo()
+        elseif self.screen=="settings" then self:showSettings()
         elseif self.screen=="localLeaderboard" then self:showLocalLeaderboard()
         elseif self.screen=="globalLeaderboard" then self:showGlobalLeaderboard()
         elseif self.screen=="auth" then self:openLeaderboard()

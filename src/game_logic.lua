@@ -12,13 +12,35 @@ function GameLogic.shapeFor(piece, rotation)
     return Board.rotate(constants.tetrominoes[piece], rotation)
 end
 
+-- Preview matrices may intentionally keep a 3 x 3 footprint, but empty outer
+-- rows and columns must not consume board space when checking a landing spot.
+local function trimEmptyBorder(shape)
+    local top, bottom, left, right
+    for row = 1, #shape do
+        for column = 1, #shape[row] do
+            if shape[row][column] ~= 0 then
+                top = math.min(top or row, row); bottom = math.max(bottom or row, row)
+                left = math.min(left or column, column); right = math.max(right or column, column)
+            end
+        end
+    end
+    local trimmed = {}
+    for row = top, bottom do
+        trimmed[#trimmed + 1] = {}
+        for column = left, right do
+            trimmed[#trimmed][#trimmed[#trimmed] + 1] = shape[row][column]
+        end
+    end
+    return trimmed
+end
+
 function GameLogic.findPlacements(state, piece, rotation)
     local placements = {}
-    local shape = GameLogic.shapeFor(piece, rotation)
+    local shape = trimEmptyBorder(GameLogic.shapeFor(piece, rotation))
     for row = 1, constants.ROWS - #shape + 1 do
         for column = 1, constants.COLS - #shape[1] + 1 do
             if Board.canPlace(state.grid, shape, row, column) then
-                placements[#placements + 1] = {row = row, column = column}
+                placements[#placements + 1] = {row = row, column = column, shape = shape, rotation = rotation % 4}
             end
         end
     end
@@ -27,19 +49,20 @@ end
 
 function GameLogic.placeRandomPiece(state, random)
     local placements = GameLogic.findPlacements(state, state.currentPiece, state.rotation)
+    -- Rotation is a player decision. Exhaust every coordinate for the selected
+    -- orientation, but never rotate automatically just to avoid game over.
     if #placements == 0 then
         state.isGameOver = true
         return false
     end
-    local shape = GameLogic.shapeFor(state.currentPiece, state.rotation)
     local firstIndex = random(1, #placements)
     -- Placements are a snapshot. Revalidate at commit time and try every candidate
     -- once, so a stale candidate can never overwrite an occupied board cell.
     for offset = 0, #placements - 1 do
         local index = ((firstIndex + offset - 1) % #placements) + 1
         local placement = placements[index]
-        local placed, cells = Board.tryPlace(state.grid, shape, placement.row, placement.column)
-        if placed then return true, cells end
+        local placed, cells = Board.tryPlace(state.grid, placement.shape, placement.row, placement.column)
+        if placed then return true, cells, placement.rotation end
     end
     state.isGameOver = true
     return false

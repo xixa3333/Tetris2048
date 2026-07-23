@@ -47,6 +47,7 @@ local function buildSystem(callbacks)
     function sound:playBackground() self.backgroundCount = self.backgroundCount + 1 end
     function sound:playGameOver() self.gameOverCount = self.gameOverCount + 1 end
     function sound:playEliminate() self.eliminateCount = self.eliminateCount + 1 end
+    function sound:stopBackground() self.stopCount = (self.stopCount or 0) + 1 end
 
     local controller = GameController.new({
         state = GameState.new(), logic = GameLogic, view = view,
@@ -72,6 +73,7 @@ T.test("Game home records partial score once and returns to cover", function()
     controller:start(); controller.state.score=30
     T.equal(controller:handle("home"),true)
     T.equal(recorded,1); T.equal(homes,1); T.equal(controller.active,false)
+    T.equal(controller.sound.stopCount,1)
     controller:returnHome(); T.equal(recorded,1)
 end)
 
@@ -84,8 +86,20 @@ T.test("Game-over restart starts a fresh game while home returns to cover", func
 end)
 
 T.test("Resume forces renderer recovery and restores input", function()
-    local controller,view,_,input=buildSystem(); controller:start(); controller:pause(); controller:resume()
+    local controller,view,_,input,sound=buildSystem(); controller:start(); controller:pause(); controller:resume()
     T.equal(view.recoverCount,1); T.equal(input.startCount,2); T.equal(view.visible,true)
+    T.equal(sound.stopCount,1); T.equal(sound.backgroundCount,2)
+end)
+
+T.test("Seeded controller recreates its random stream on every restart",function()
+    local streams=0
+    local controller=buildSystem()
+    controller.randomFactory=function()
+        streams=streams+1; local value=0
+        return function(minimum,maximum) value=value+1; return minimum+(value%(maximum-minimum+1)) end
+    end
+    controller:start(); local first=controller.state.currentPiece
+    controller:restart(); T.equal(controller.state.currentPiece,first); T.equal(streams,2)
 end)
 
 T.test("Controller rejects repeated movement until scheduled turn completes", function()
