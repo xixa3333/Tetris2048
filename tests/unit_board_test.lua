@@ -34,6 +34,19 @@ T.test("Board.slide preserves a connected component while moving left", function
     })
 end)
 
+T.test("Board.slideWithMoves reports every source and destination without losing cells", function()
+    local grid = Board.new(4, 4)
+    grid[2][3], grid[2][4] = 4, 4
+    local moved, moves = Board.slideWithMoves(grid, "left")
+    T.equal(#moves, 2)
+    T.equal(moves[1].fromRow, 2)
+    T.equal(moves[1].toRow, 2)
+    T.equal(moves[1].toColumn, 1)
+    T.equal(moves[2].toColumn, 2)
+    T.equal(moved[2][1], 4)
+    T.equal(moved[2][2], 4)
+end)
+
 T.test("Board.clearCompletedLines clears row and column intersections once", function()
     local grid = {
         {1, 1, 1},

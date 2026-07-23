@@ -39,6 +39,18 @@ test("Architecture: controller receives external services through dependencies",
   }
 });
 
+test("Architecture: turn phases remain separated between rules and animation orchestration", () => {
+  const logic = read("../src/game_logic.lua");
+  const controller = read("../src/game_controller.lua");
+  for (const phase of ["moveBlocks", "clearCompleted", "placeQueuedPiece"]) {
+    assert(logic.includes(`function GameLogic.${phase}`), `missing rule phase ${phase}`);
+    assert(controller.includes(`self.logic.${phase}`), `controller does not orchestrate ${phase}`);
+  }
+  for (const forbidden of ["timer.", "transition.", "display."]) {
+    assert(!logic.includes(forbidden), `game logic contains animation dependency ${forbidden}`);
+  }
+});
+
 test("Architecture: renderer owns separate animation and overlay groups", () => {
   const contents = read("../src/ui_renderer.lua");
   for (const token of ["animationGroup", "overlayGroup", "clearTransient"]) {

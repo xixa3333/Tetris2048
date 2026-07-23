@@ -95,7 +95,7 @@ function Board.tryPlace(grid, shape, top, left)
     for _, target in ipairs(targets) do
         grid[target.row][target.column] = target.value
     end
-    return true
+    return true, targets
 end
 
 function Board.place(grid, shape, top, left)
@@ -137,7 +137,7 @@ local function connectedComponents(grid)
 end
 
 -- 將每個相連元件沿指定方向滑到底；元件形狀在移動中保持不變。
-function Board.slide(grid, direction)
+function Board.slideWithMoves(grid, direction)
     local delta = assert(DIRECTIONS[direction], "unknown direction: " .. tostring(direction))
     local result = Board.new(#grid, #grid[1])
     local components = connectedComponents(grid)
@@ -150,6 +150,7 @@ function Board.slide(grid, direction)
         return aCell.column < bCell.column
     end)
 
+    local moves = {}
     for _, component in ipairs(components) do
         local distance = 0
         while true do
@@ -167,10 +168,22 @@ function Board.slide(grid, direction)
         end
 
         for _, cell in ipairs(component.cells) do
-            result[cell.row + delta.row * distance][cell.column + delta.column * distance] = component.value
+            local targetRow = cell.row + delta.row * distance
+            local targetColumn = cell.column + delta.column * distance
+            result[targetRow][targetColumn] = component.value
+            moves[#moves + 1] = {
+                fromRow = cell.row, fromColumn = cell.column,
+                toRow = targetRow, toColumn = targetColumn,
+                value = component.value
+            }
         end
     end
 
+    return result, moves
+end
+
+function Board.slide(grid, direction)
+    local result = Board.slideWithMoves(grid, direction)
     return result
 end
 

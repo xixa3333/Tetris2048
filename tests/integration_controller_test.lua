@@ -7,10 +7,13 @@ local function chooseFirst(minimum) return minimum end
 
 local function buildSystem(callbacks)
     callbacks = callbacks or {}
-    local view = {clearCount = 0, renderCount = 0, animationCount = 0, overlayVisible = false}
+    local view = {clearCount = 0, renderCount = 0, animationCount = 0, overlayVisible = false, events = {}}
     function view:clearTransient() self.clearCount = self.clearCount + 1; self.overlayVisible = false end
     function view:render() self.renderCount = self.renderCount + 1 end
     function view:playClearAnimation(cells) self.animationCount = self.animationCount + #cells end
+    function view:clearAnimation() self.events[#self.events + 1] = "animation-cleared" end
+    function view:playMoveAnimation(moves) self.moveCount = #(moves or {}); self.events[#self.events + 1] = "move" end
+    function view:playPlacementAnimation(cells) self.placementCount = #(cells or {}); self.events[#self.events + 1] = "place" end
     function view:showGameOver(restart, home) self.overlayVisible = true; self.restart = restart; self.home = home end
     function view:setVisible(value) self.visible = value end
     function view:recover() self.recoverCount = (self.recoverCount or 0) + 1 end
@@ -24,9 +27,16 @@ local function buildSystem(callbacks)
     end
     function scheduler:cancel(handle) handle.cancelled = true; self.cancelled = self.cancelled + 1 end
     function scheduler:flush()
-        local queue = self.queue
-        self.queue = {}
-        for _, handle in ipairs(queue) do if not handle.cancelled then handle.callback() end end
+        local guard = 0
+        while #self.queue > 0 do
+            guard = guard + 1
+            if guard > 50 then error("scheduler did not become idle") end
+            self:flushOne()
+        end
+    end
+    function scheduler:flushOne()
+        local handle = table.remove(self.queue, 1)
+        if handle and not handle.cancelled then handle.callback() end
     end
 
     local input = {startCount = 0, stopCount = 0}
@@ -83,9 +93,46 @@ T.test("Controller rejects repeated movement until scheduled turn completes", fu
     controller:start()
     T.equal(controller:handle("left"), true)
     T.equal(controller:handle("right"), false)
+    T.equal(controller:handle("rotate"), false)
+    T.equal(controller:handle("reserve"), false)
+    T.equal(controller:handle("home"), false)
+    scheduler:flushOne()
+    T.equal(controller.state.isBusy, true)
+    T.equal(controller:handle("up"), false)
     scheduler:flush()
     T.equal(controller.state.isBusy, false)
     T.equal(controller:handle("right"), true)
+end)
+
+T.test("Controller animates move, clear, placement, clear as one locked sequence", function()
+    local state = GameState.new()
+    local calls, clearCount = {}, 0
+    local logic = {}
+    function logic.moveBlocks() calls[#calls + 1] = "move"; return {moves = {{}}} end
+    function logic.clearCompleted()
+        clearCount = clearCount + 1
+        calls[#calls + 1] = "clear" .. clearCount
+        return {lineCount = 1, cells = {{row = 1, column = clearCount}}}
+    end
+    function logic.placeQueuedPiece()
+        calls[#calls + 1] = "place"
+        return {placed = true, cells = {{row = 2, column = 2, value = 1}}, gameOver = false}
+    end
+    local view = {events = {}}
+    function view:playMoveAnimation() self.events[#self.events + 1] = "move-animation" end
+    function view:playClearAnimation() self.events[#self.events + 1] = "clear-animation" end
+    function view:playPlacementAnimation() self.events[#self.events + 1] = "place-animation" end
+    function view:clearAnimation() end
+    function view:render() end
+    local scheduler = {queue = {}}
+    function scheduler:after(_, callback) local h={callback=callback}; self.queue[#self.queue+1]=h; return h end
+    function scheduler:cancel() end
+    local controller = GameController.new({state=state,logic=logic,view=view,scheduler=scheduler})
+    T.equal(controller:handle("left"), true)
+    while #scheduler.queue > 0 do table.remove(scheduler.queue,1).callback() end
+    T.equal(table.concat(calls, ","), "move,clear1,place,clear2")
+    T.equal(table.concat(view.events, ","), "move-animation,clear-animation,place-animation,clear-animation")
+    T.equal(state.isBusy, false)
 end)
 
 T.test("Controller move preserves a cell occupied immediately before landing", function()
@@ -112,5 +159,17 @@ T.test("Controller restart cancels work and clears transient animation and text 
     T.equal(view.overlayVisible, false)
     T.equal(input.startCount, 2)
     T.equal(controller.state.score, 0)
+    T.equal(controller.state.isBusy, false)
+end)
+
+T.test("A stale animation callback cannot modify a restarted game", function()
+    local controller, _, scheduler = buildSystem()
+    controller:start()
+    controller:handle("left")
+    local staleCallback = scheduler.queue[1].callback
+    controller:restart()
+    local expected = require("board").copy(controller.state.grid)
+    staleCallback()
+    T.gridEqual(controller.state.grid, expected)
     T.equal(controller.state.isBusy, false)
 end)
