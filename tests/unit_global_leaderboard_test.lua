@@ -1,5 +1,11 @@
 local T=require("test_helper")
 local GlobalLeaderboard=require("global_leaderboard")
+local FirestoreUrl=require("firestore_url")
+
+T.test("Firestore REST URL encodes the default database path",function()
+    local url=FirestoreUrl.documents("project")
+    T.equal(url,"https://firestore.googleapis.com/v1/projects/project/databases/%28default%29/documents")
+end)
 
 local function auth()
     local service={user={uid="u1",account="a@example.com",nickname="小明",idToken="token"}}
