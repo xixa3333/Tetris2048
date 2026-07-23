@@ -20,6 +20,23 @@ T.test("Boundary: a single cell reaches each of the four board edges", function(
     end
 end)
 
+T.test("Boundary: every animation destination remains inside the board", function()
+    for row = 1, 10 do
+        for column = 1, 10 do
+            for _, direction in ipairs({"up", "down", "left", "right"}) do
+                local grid = Board.new(10, 10)
+                grid[row][column] = 1
+                local moved, moves = Board.slideWithMoves(grid, direction)
+                T.equal(#moves, 1)
+                local move = moves[1]
+                T.equal(move.toRow >= 1 and move.toRow <= 10, true)
+                T.equal(move.toColumn >= 1 and move.toColumn <= 10, true)
+                T.equal(moved[move.toRow][move.toColumn], 1)
+            end
+        end
+    end
+end)
+
 T.test("Boundary: placement accepts the bottom-right corner", function()
     local grid = Board.new(10, 10)
     T.equal(Board.canPlace(grid, {{1}}, 10, 10), true)

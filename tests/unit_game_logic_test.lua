@@ -62,6 +62,27 @@ T.test("GameLogic.move slides, scores a completed line, and advances queue", fun
     T.equal(state.currentPiece, 2)
 end)
 
+T.test("GameLogic exposes movement, clearing and placement as isolated phases", function()
+    local state = GameState.new()
+    state.currentPiece, state.nextPiece = 1, 2
+    for column = 1, 10 do state.grid[5][column] = 3 end
+    local movement = GameLogic.moveBlocks(state, "up")
+    T.equal(#movement.moves, 10)
+    T.equal(state.score, 0)
+    T.equal(state.currentPiece, 1)
+    T.equal(state.grid[1][1], 3)
+
+    local cleared = GameLogic.clearCompleted(state)
+    T.equal(cleared.lineCount, 1)
+    T.equal(state.score, 10)
+    T.equal(state.currentPiece, 1)
+
+    local placement = GameLogic.placeQueuedPiece(state, chooseFirst)
+    T.equal(placement.placed, true)
+    T.equal(#placement.cells, 4)
+    T.equal(state.currentPiece, 2)
+end)
+
 T.test("GameLogic.move checks completed lines before and after placement", function()
     local state = GameState.new()
     state.currentPiece, state.nextPiece = 1, 2

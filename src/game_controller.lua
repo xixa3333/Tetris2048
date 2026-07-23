@@ -4,6 +4,7 @@ local GameController = {}
 GameController.__index = GameController
 
 local MOVE_COMMANDS = {up = true, down = true, left = true, right = true}
+local DEFAULT_TIMINGS = {move = 180, clear = 420, place = 180}
 
 function GameController.new(dependencies)
     assert(dependencies.state, "state is required")
@@ -21,11 +22,14 @@ function GameController.new(dependencies)
         random = dependencies.random or math.random,
         onGameOver = dependencies.onGameOver,
         onHome = dependencies.onHome,
-        pendingTimers = {}, scoreRecorded = false, active = false
+        pendingTimers = {}, scoreRecorded = false, active = false,
+        workGeneration = 0,
+        timings = dependencies.timings or DEFAULT_TIMINGS
     }, GameController)
 end
 
 function GameController:cancelPendingWork()
+    self.workGeneration = self.workGeneration + 1
     for _, handle in ipairs(self.pendingTimers) do
         self.scheduler:cancel(handle)
     end
@@ -34,7 +38,18 @@ function GameController:cancelPendingWork()
 end
 
 function GameController:schedule(delay, callback)
-    local handle = self.scheduler:after(delay, callback)
+    local generation = self.workGeneration
+    local handle
+    handle = self.scheduler:after(delay, function()
+        for index = #self.pendingTimers, 1, -1 do
+            if self.pendingTimers[index] == handle then
+                table.remove(self.pendingTimers, index)
+                break
+            end
+        end
+        if generation ~= self.workGeneration then return end
+        callback()
+    end)
     self.pendingTimers[#self.pendingTimers + 1] = handle
 end
 
@@ -79,8 +94,8 @@ function GameController:finishGame()
 end
 
 function GameController:handle(command)
-    if command == "home" then self:returnHome(); return true end
     if self.state.isBusy or self.state.isGameOver then return false end
+    if command == "home" then self:returnHome(); return true end
 
     if command == "rotate" then
         self.logic.rotateNext(self.state)
@@ -95,16 +110,49 @@ function GameController:handle(command)
     if not MOVE_COMMANDS[command] then return false end
 
     self.state.isBusy = true
-    self:schedule(150, function()
-        local result = self.logic.move(self.state, command, self.random)
-        if result.cleared.lineCount > 0 then
-            if self.sound.playEliminate then self.sound:playEliminate() end
-            self.view:playClearAnimation(result.cleared.cells)
-        end
-        self.view:render(self.state)
-        if result.gameOver then self:finishGame() else self.state.isBusy = false end
-    end)
+    local movement = self.logic.moveBlocks(self.state, command)
+    if self.view.playMoveAnimation then
+        self.view:playMoveAnimation(movement.moves, self.timings.move)
+    end
+    self:schedule(self.timings.move, function() self:afterMoveAnimation() end)
     return true
+end
+
+function GameController:clearAnimation()
+    if self.view.clearAnimation then self.view:clearAnimation() end
+end
+
+function GameController:runClearPhase(onComplete)
+    local cleared = self.logic.clearCompleted(self.state)
+    if cleared.lineCount == 0 then onComplete(); return end
+    if self.sound.playEliminate then self.sound:playEliminate() end
+    self.view:playClearAnimation(cleared.cells)
+    self:schedule(self.timings.clear, function()
+        self.view:render(self.state)
+        self:clearAnimation()
+        onComplete()
+    end)
+end
+
+function GameController:afterMoveAnimation()
+    self.view:render(self.state)
+    self:clearAnimation()
+    self:runClearPhase(function() self:placePhase() end)
+end
+
+function GameController:placePhase()
+    local placement = self.logic.placeQueuedPiece(self.state, self.random)
+    if placement.placed and self.view.playPlacementAnimation then
+        self.view:playPlacementAnimation(placement.cells, self.timings.place)
+    end
+    self:schedule(self.timings.place, function()
+        self.view:render(self.state)
+        self:clearAnimation()
+        if placement.gameOver then self:finishGame(); return end
+        self:runClearPhase(function()
+            if self.state.isGameOver then self:finishGame() else self.state.isBusy = false end
+        end)
+    end)
 end
 
 function GameController:pause()
@@ -116,7 +164,7 @@ function GameController:resume()
     self.view:setVisible(true)
     self.view:clearTransient()
     if self.view.recover then self.view:recover(self.state) else self.view:render(self.state) end
-    if self.state.isGameOver then
+    if self.state.isGameOver and not self.state.isBusy then
         self.view:showGameOver(function() self:restart() end, function() self:returnHome() end)
     elseif self.input.start then
         self.input:start(function(command) self:handle(command) end)

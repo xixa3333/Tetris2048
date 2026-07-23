@@ -113,6 +113,12 @@ function Renderer:clearTransient()
     self.controlsGroup.isVisible = true
 end
 
+function Renderer:clearAnimation()
+    removeGroup(self.animationGroup)
+    self.animationGroup = display.newGroup()
+    self.sceneGroup:insert(self.animationGroup)
+end
+
 local function renderShape(group, images, piece, rotation)
     for row = 1, 4 do
         for column = 1, 4 do
@@ -167,6 +173,42 @@ function Renderer:playClearAnimation(cells)
         animation.x, animation.y = image.x, image.y
         animation.width, animation.height = CELL_SIZE, CELL_SIZE
         animation:play({startFrame = 1, endFrame = 9, loop = 1, remove = true})
+    end
+end
+
+function Renderer:playMoveAnimation(moves, duration)
+    self:clearAnimation()
+    for _, move in ipairs(moves or {}) do
+        if move.fromRow ~= move.toRow or move.fromColumn ~= move.toColumn then
+            local source = self.boardImages[move.fromRow][move.fromColumn]
+            self.boardImages[move.fromRow][move.fromColumn] = replaceImage(
+                self.boardGroup, source, EMPTY_IMAGE
+            )
+        end
+    end
+    for _, move in ipairs(moves or {}) do
+        if move.fromRow ~= move.toRow or move.fromColumn ~= move.toColumn then
+            local source = self.boardImages[move.fromRow][move.fromColumn]
+            local target = self.boardImages[move.toRow][move.toColumn]
+            local image = display.newImageRect(
+                self.animationGroup, constants.BlockImage[move.value], CELL_SIZE, CELL_SIZE
+            )
+            image.x, image.y = source.x, source.y
+            transition.to(image, {time = duration or 180, x = target.x, y = target.y})
+        end
+    end
+end
+
+function Renderer:playPlacementAnimation(cells, duration)
+    self:clearAnimation()
+    for _, cell in ipairs(cells or {}) do
+        local target = self.boardImages[cell.row][cell.column]
+        local image = display.newImageRect(
+            self.animationGroup, constants.BlockImage[cell.value], CELL_SIZE, CELL_SIZE
+        )
+        image.x, image.y = target.x, target.y
+        image.xScale, image.yScale, image.alpha = 0.2, 0.2, 0.25
+        transition.to(image, {time = duration or 180, xScale = 1, yScale = 1, alpha = 1})
     end
 end
 

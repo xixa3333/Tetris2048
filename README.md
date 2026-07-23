@@ -12,8 +12,8 @@
 
 請從 [GitHub Releases](https://github.com/xixa3333/Tetris2048/releases/latest) 下載最新版：
 
-- Android：`Tetris2048-Android-v2.3.2.apk`
-- Windows：`Tetris2048-Windows-v2.3.2.zip`，解壓縮後執行 `Tetris2048.exe`
+- Android：`Tetris2048-Android-v2.3.3.apk`
+- Windows：`Tetris2048-Windows-v2.3.3.zip`，解壓縮後執行 `Tetris2048.exe`
 
 APK、EXE 等建置產物只放在 Releases，不提交到原始碼分支。
 

@@ -38,10 +38,34 @@ function GameLogic.placeRandomPiece(state, random)
     for offset = 0, #placements - 1 do
         local index = ((firstIndex + offset - 1) % #placements) + 1
         local placement = placements[index]
-        if Board.tryPlace(state.grid, shape, placement.row, placement.column) then return true end
+        local placed, cells = Board.tryPlace(state.grid, shape, placement.row, placement.column)
+        if placed then return true, cells end
     end
     state.isGameOver = true
     return false
+end
+
+-- Turn rules are split into phases so a controller can animate each state
+-- transition without coupling these rules to Solar2D timers or display objects.
+function GameLogic.moveBlocks(state, direction)
+    local grid, moves = Board.slideWithMoves(state.grid, direction)
+    state.grid = grid
+    return {moves = moves}
+end
+
+function GameLogic.clearCompleted(state)
+    local cleared = Board.clearCompletedLines(state.grid)
+    state.score = state.score + cleared.lineCount * 10
+    return cleared
+end
+
+function GameLogic.placeQueuedPiece(state, random)
+    local placementRotation = state.rotation
+    GameLogic.advanceQueue(state, random)
+    state.rotation = placementRotation
+    local placed, cells = GameLogic.placeRandomPiece(state, random)
+    state.rotation = 0
+    return {placed = placed, cells = cells or {}, gameOver = state.isGameOver}
 end
 
 function GameLogic.advanceQueue(state, random)
@@ -71,28 +95,22 @@ function GameLogic.reserveNext(state, random)
 end
 
 function GameLogic.move(state, direction, random)
-    state.grid = Board.slide(state.grid, direction)
+    GameLogic.moveBlocks(state, direction)
 
     -- 第一階段：移動完成後、放入下一塊之前先結算，避免已完成的線
     -- 佔據空間而造成錯誤的 Game Over。
-    local clearedBeforePlacement = Board.clearCompletedLines(state.grid)
+    local clearedBeforePlacement = GameLogic.clearCompleted(state)
     -- rotation 描述的是「下一個要放下的方塊」。提升佇列前先保存，
     -- 否則 advanceQueue() 的初始化會讓玩家剛選擇的旋轉角度遺失。
-    local placementRotation = state.rotation
-    GameLogic.advanceQueue(state, random)
-    state.rotation = placementRotation
-    local placed = GameLogic.placeRandomPiece(state, random)
-    state.rotation = 0
+    local placement = GameLogic.placeQueuedPiece(state, random)
 
     -- 第二階段：新方塊可能正好補滿一列或一行，因此放置後再次結算。
     local clearedAfterPlacement = {lineCount = 0, cells = {}}
-    if placed then
-        clearedAfterPlacement = Board.clearCompletedLines(state.grid)
+    if placement.placed then
+        clearedAfterPlacement = GameLogic.clearCompleted(state)
     end
 
     local lineCount = clearedBeforePlacement.lineCount + clearedAfterPlacement.lineCount
-    state.score = state.score + lineCount * 10
-
     local cells = {}
     for _, cell in ipairs(clearedBeforePlacement.cells) do cells[#cells + 1] = cell end
     for _, cell in ipairs(clearedAfterPlacement.cells) do cells[#cells + 1] = cell end
@@ -101,7 +119,7 @@ function GameLogic.move(state, direction, random)
         cleared = {lineCount = lineCount, cells = cells},
         clearedBeforePlacement = clearedBeforePlacement,
         clearedAfterPlacement = clearedAfterPlacement,
-        placed = placed,
+        placed = placement.placed,
         gameOver = state.isGameOver
     }
 end

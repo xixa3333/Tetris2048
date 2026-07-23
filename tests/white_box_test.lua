@@ -85,9 +85,15 @@ T.test("White-box: game-over branch stops input and exposes restart callback", f
     local state = GameState.new()
     local fakeLogic = {}
     function fakeLogic.start(target) target:reset() end
-    function fakeLogic.move(target)
+    function fakeLogic.moveBlocks()
+        return {moves = {}}
+    end
+    function fakeLogic.clearCompleted()
+        return {lineCount = 0, cells = {}}
+    end
+    function fakeLogic.placeQueuedPiece(target)
         target.isGameOver = true
-        return {cleared = {lineCount = 0, cells = {}}, gameOver = true}
+        return {placed = false, cells = {}, gameOver = true}
     end
     local view = {renderCount = 0}
     function view:clearTransient() end
@@ -109,6 +115,7 @@ T.test("White-box: game-over branch stops input and exposes restart callback", f
     controller:start()
     controller:handle("down")
     scheduler.queue[1]()
+    scheduler.queue[2]()
     T.equal(state.isGameOver, true)
     T.equal(input.stopCount, 2)
     T.equal(sound.gameOverCount, 1)
