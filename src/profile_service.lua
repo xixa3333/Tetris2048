@@ -30,4 +30,10 @@ function ProfileService:save(nickname,callback)
         else callback(false,"暱稱儲存失敗") end
     end)
 end
+function ProfileService:deleteCurrent(callback)
+    local user=self.auth:currentUser(); if not user then callback(false); return end
+    self.http:request("DELETE",self.base..user.uid,nil,self:_headers(),function(ok,_,status)
+        callback(ok or status==404)
+    end)
+end
 return ProfileService

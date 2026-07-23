@@ -27,7 +27,7 @@ service cloud.firestore {
       allow create: if signedIn() && userId == request.auth.uid && validScore();
       allow update: if signedIn() && userId == request.auth.uid && validScore()
         && request.resource.data.score >= resource.data.score;
-      allow delete: if false;
+      allow delete: if signedIn() && userId == request.auth.uid;
     }
 
     match /profiles/{userId} {
@@ -38,7 +38,7 @@ service cloud.firestore {
         && request.resource.data.nickname is string
         && request.resource.data.nickname.size() >= 2
         && request.resource.data.nickname.size() <= 16;
-      allow delete: if false;
+      allow delete: if signedIn() && userId == request.auth.uid;
     }
 
     match /{document=**} {

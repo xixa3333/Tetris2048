@@ -15,6 +15,7 @@ local SessionStore=require("session_store")
 local LifecycleAdapter=require("lifecycle_adapter")
 local firebaseConfig=require("firebase_config")
 local appInfo=require("app_info")
+local AccountMigration=require("account_migration")
 
 math.randomseed(os.time())
 local audioFiles={eliminate=audio.loadStream("music/eliminate.mp3"),background=audio.loadStream("music/BackGround.mp3"),gameOver=audio.loadStream("music/GameOver.mp3")}
@@ -37,10 +38,11 @@ local game=GameController.new({state=GameState.new(),logic=GameLogic,view=gameVi
 gameView:setCommandHandler(function(command) game:handle(command) end)
 local http=HttpClient.new()
 local auth=AuthService.new(http,firebaseConfig,SessionStore.new(JsonStorage.new("session.json")))
-app=AppController.new({view=AppView.new(),game=game,auth=auth,
-    profile=ProfileService.new(http,firebaseConfig,auth),
+local profile=ProfileService.new(http,firebaseConfig,auth)
+local globalBoard=GlobalLeaderboard.new(http,firebaseConfig,auth)
+app=AppController.new({view=AppView.new(),game=game,auth=auth,profile=profile,
     localBoard=LocalLeaderboard.new(JsonStorage.new("leaderboard.json")),
-    globalBoard=GlobalLeaderboard.new(http,firebaseConfig,auth),platform=platform,info=appInfo})
+    globalBoard=globalBoard,migration=AccountMigration.new(auth,profile,globalBoard),platform=platform,info=appInfo})
 app:start()
 app:restoreLogin()
 local lifecycle=LifecycleAdapter.new(Runtime,app)

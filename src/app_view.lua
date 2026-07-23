@@ -70,13 +70,20 @@ function AppView:showAuth(actions)
     button(g,"舊信箱忘記密碼",250,550,function() actions.forgot(account.text) end,220)
     button(g,"返回",250,635,actions.back,150)
 end
-function AppView:showAccountChange(save,back)
-    local g=self:_screen("修改帳號 ID")
-    text(g,"新 ID 必須唯一，修改後請用新 ID 登入",250,190,18,BRIGHT)
-    local account=native.newTextField(250,285,370,50); account.placeholder="新帳號 ID"; account.inputType="default"
-    self.fields={account}; self.status=text(g,"",250,355,17,{1,0.65,0.35})
-    button(g,"儲存帳號 ID",250,455,function() save(account.text) end)
-    button(g,"返回",250,550,back)
+function AppView:showAccountInfo(account,back)
+    local g=self:_screen("帳號 ID")
+    text(g,"目前 ID："..account,250,230,22,CYAN)
+    text(g,"帳號 ID 建立後不可修改",250,310,19,BRIGHT)
+    button(g,"返回排行榜",250,500,back)
+end
+function AppView:showLegacyMigration(save,back)
+    local g=self:_screen("轉換舊帳號")
+    text(g,"舊信箱帳號需轉換為永久 ID\n暱稱與全球最高分會保留",250,170,18,BRIGHT)
+    local account=native.newTextField(250,285,370,50); account.placeholder="新的永久帳號 ID"
+    local password=native.newTextField(250,355,370,50); password.placeholder="目前密碼"; password.isSecure=true
+    self.fields={account,password}; self.status=text(g,"",250,425,16,{1,0.65,0.35})
+    button(g,"確認轉換",250,520,function() save(account.text,password.text) end)
+    button(g,"稍後再說",250,610,back)
 end
 function AppView:setStatus(value) if self.status then self.status.text=value end end
 function AppView:showNickname(save,back)
@@ -98,7 +105,7 @@ end
 function AppView:showLeaderboard(title,model,actions,canDelete)
     local g=self:_screen(title)
     button(g,"本機",46,150,actions.localTab,82); button(g,"全球",148,150,actions.globalTab,82)
-    button(g,"帳號",250,150,actions.account,82); button(g,"暱稱",352,150,actions.nickname,82)
+    button(g,actions.accountLabel or "帳號 ID",250,150,actions.account,82); button(g,"暱稱",352,150,actions.nickname,82)
     button(g,"密碼",454,150,actions.password,82)
     if model.ownRank then
         local rankBackground=display.newRoundedRect(g,250,202,310,34,10)

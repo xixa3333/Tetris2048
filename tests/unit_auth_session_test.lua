@@ -40,31 +40,53 @@ T.test("ID registration uses internal email and keeps only the public ID",functi
     auth:register("Player_01","123456",function(ok) T.equal(ok,true) end)
     T.equal(auth:currentUser().account,"player_01")
 end)
-T.test("Legacy email cannot register but can sign in and migrate to a unique ID",function()
+T.test("Legacy email reauthenticates then creates a permanent ID account",function()
     local requests={}; local auth
     local http={}
     function http:request(_,url,body,_,callback)
         requests[#requests+1]=body
         if url:match("signInWithPassword") then
             callback(true,{localId="uid",email=body.email,idToken="old",refreshToken="old-refresh"},200)
-        else callback(true,{email=body.email,idToken="new",refreshToken="new-refresh"},200) end
+        else callback(true,{localId="new-uid",email=body.email,idToken="new",refreshToken="new-refresh"},200) end
     end
     auth=AuthService.new(http,{apiKey="key"})
-    auth:register("old@example.com","123456",function(ok) T.equal(ok,false) end)
     auth:signIn("old@example.com","123456",function(ok) T.equal(ok,true) end)
-    auth:changeAccount("new_id",function(ok) T.equal(ok,true) end)
-    T.equal(requests[2].email,"new_id@users.tetris2048.app")
+    auth:beginLegacyMigration("new_id","123456",function(ok,context)
+        T.equal(ok,true); T.equal(context.oldUser.uid,"uid"); T.equal(context.newUser.uid,"new-uid")
+    end)
+    T.equal(requests[3].email,"new_id@users.tetris2048.app")
     T.equal(auth:currentUser().account,"new_id")
 end)
-T.test("Account ID update reports a uniqueness collision without changing the session",function()
+T.test("Old remembered email session is recognized as legacy after upgrading",function()
+    local raw=storage(); raw:save({account="old@example.com",refreshToken="old"})
     local http={}
-    function http:request(_,_,_,_,callback) callback(false,{error={message="EMAIL_EXISTS"}},400) end
+    function http:requestForm(_,_,_,callback) callback(true,{user_id="u",id_token="id",refresh_token="new"},200) end
+    local auth=AuthService.new(http,{apiKey="key"},SessionStore.new(raw))
+    auth:restoreSession(function(ok) T.equal(ok,true) end)
+    T.equal(auth:currentUser().isLegacy,true); T.equal(auth:currentUser().authEmail,"old@example.com")
+end)
+T.test("Old remembered ID session reconstructs its synthetic auth address",function()
+    local raw=storage(); raw:save({account="player_01",refreshToken="old"})
+    local http={}
+    function http:requestForm(_,_,_,callback) callback(true,{user_id="u",id_token="id",refresh_token="new"},200) end
+    local auth=AuthService.new(http,{apiKey="key"},SessionStore.new(raw))
+    auth:restoreSession(function(ok) T.equal(ok,true) end)
+    T.equal(auth:currentUser().isLegacy,false)
+    T.equal(auth:currentUser().authEmail,"player_01@users.tetris2048.app")
+end)
+T.test("Legacy migration reports a permanent ID collision without changing the session",function()
+    local http={calls=0}
+    function http:request(_,url,body,_,callback)
+        self.calls=self.calls+1
+        if url:match("signInWithPassword") then callback(true,{localId="u",email="old@example.com",idToken="fresh",refreshToken="r"},200)
+        else callback(false,{error={message="EMAIL_EXISTS"}},400) end
+    end
     local auth=AuthService.new(http,{apiKey="key"})
-    auth.session={uid="u",account="current_id",idToken="token",refreshToken="refresh"}
-    auth:changeAccount("taken_id",function(ok,message)
+    auth.session={uid="u",account="old@example.com",authEmail="old@example.com",isLegacy=true,idToken="token",refreshToken="refresh"}
+    auth:beginLegacyMigration("taken_id","123456",function(ok,message)
         T.equal(ok,false); T.equal(message,"這個帳號已被使用")
     end)
-    T.equal(auth:currentUser().account,"current_id")
+    T.equal(auth:currentUser().account,"old@example.com")
 end)
 T.test("Password reset refuses ID accounts because no personal email is stored",function()
     local auth=AuthService.new({}, {apiKey="key"})

@@ -4,10 +4,11 @@ function SessionStore.new(storage) return setmetatable({storage=assert(storage)}
 function SessionStore:load()
     local data=self.storage:load()
     if type(data)~="table" or type(data.refreshToken)~="string" or data.refreshToken=="" then return nil end
-    return {refreshToken=data.refreshToken,account=data.account}
+    return {refreshToken=data.refreshToken,account=data.account,authEmail=data.authEmail,isLegacy=data.isLegacy}
 end
 function SessionStore:save(session)
-    self.storage:save({refreshToken=session.refreshToken,account=session.account})
+    self.storage:save({refreshToken=session.refreshToken,account=session.account,
+        authEmail=session.authEmail,isLegacy=session.isLegacy==true})
 end
 function SessionStore:clear() self.storage:save({}) end
 return SessionStore

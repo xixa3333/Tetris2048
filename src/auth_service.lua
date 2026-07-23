@@ -33,7 +33,9 @@ function AuthService:_authenticate(action,account,password,allowLegacy,callback)
     local url="https://identitytoolkit.googleapis.com/v1/accounts:"..action.."?key="..self.config.apiKey
     self.http:request("POST",url,{email=email,password=password,returnSecureToken=true},nil,function(ok,data)
         if not ok then callback(false,self:_message(data)); return end
-        local session={uid=data.localId,account=AccountIdentity.fromEmail(data.email),idToken=data.idToken,refreshToken=data.refreshToken}
+        local authEmail=AccountIdentity.normalize(data.email)
+        local session={uid=data.localId,account=AccountIdentity.fromEmail(authEmail),authEmail=authEmail,
+            isLegacy=AccountIdentity.isLegacyEmail(authEmail),idToken=data.idToken,refreshToken=data.refreshToken}
         self:_save(session); callback(true,session)
     end)
 end
@@ -47,7 +49,14 @@ function AuthService:restoreSession(callback)
     local url="https://securetoken.googleapis.com/v1/token?key="..self.config.apiKey
     self.http:requestForm("POST",url,body,function(ok,data)
         if not ok then self:signOut(); callback(false,"SESSION_EXPIRED"); return end
-        local session={uid=data.user_id,account=saved.account,idToken=data.id_token,refreshToken=data.refresh_token}
+        local legacy=saved.isLegacy==true or AccountIdentity.isLegacyEmail(saved.account)
+        local authEmail=saved.authEmail
+        if not authEmail then
+            if legacy then authEmail=AccountIdentity.normalize(saved.account)
+            else authEmail=AccountIdentity.toEmail(saved.account) end
+        end
+        local session={uid=data.user_id,account=saved.account,authEmail=authEmail,
+            isLegacy=legacy,idToken=data.id_token,refreshToken=data.refresh_token}
         self:_save(session); callback(true,session)
     end)
 end
@@ -63,17 +72,36 @@ function AuthService:sendPasswordReset(account,callback)
     end)
 end
 
-function AuthService:changeAccount(account,callback)
-    if not self.session then callback(false,"請先登入"); return end
-    local email,idOrMessage=AccountIdentity.toEmail(account)
-    if not email then callback(false,idOrMessage); return end
-    local url="https://identitytoolkit.googleapis.com/v1/accounts:update?key="..self.config.apiKey
-    self.http:request("POST",url,{idToken=self.session.idToken,email=email,returnSecureToken=true},nil,function(ok,data)
-        if not ok then callback(false,self:_message(data,"帳號 ID 修改失敗")); return end
-        self.session.account=idOrMessage
-        self.session.idToken=data.idToken or self.session.idToken
-        self.session.refreshToken=data.refreshToken or self.session.refreshToken
-        self:_save(self.session); callback(true,"帳號 ID 已修改")
+function AuthService:beginLegacyMigration(account,password,callback)
+    local current=self.session
+    if not current or not current.isLegacy then callback(false,"只有舊信箱帳號需要轉換"); return end
+    local targetEmail,idOrMessage=AccountIdentity.toEmail(account)
+    if not targetEmail then callback(false,idOrMessage); return end
+    if #(password or "")<6 then callback(false,"請輸入目前密碼"); return end
+    local signInUrl="https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key="..self.config.apiKey
+    self.http:request("POST",signInUrl,{email=current.authEmail or current.account,password=password,returnSecureToken=true},nil,function(ok,data)
+        if not ok or data.localId~=current.uid then callback(false,self:_message(data,"目前密碼錯誤")); return end
+        local oldUser={uid=data.localId,account=current.account,authEmail=data.email,
+            isLegacy=true,nickname=current.nickname,idToken=data.idToken,refreshToken=data.refreshToken}
+        local signUpUrl="https://identitytoolkit.googleapis.com/v1/accounts:signUp?key="..self.config.apiKey
+        self.http:request("POST",signUpUrl,{email=targetEmail,password=password,returnSecureToken=true},nil,function(created,result)
+            if not created then callback(false,self:_message(result,"帳號 ID 建立失敗")); return end
+            local newUser={uid=result.localId,account=idOrMessage,authEmail=result.email,isLegacy=false,
+                nickname=current.nickname,idToken=result.idToken,refreshToken=result.refreshToken}
+            self.session=newUser
+            callback(true,{oldUser=oldUser,newUser=newUser})
+        end)
+    end)
+end
+function AuthService:commitLegacyMigration()
+    if self.session then self:_save(self.session) end
+end
+function AuthService:rollbackLegacyMigration(context,callback)
+    local newUser=context and context.newUser; local oldUser=context and context.oldUser
+    if not newUser or not oldUser then callback(false); return end
+    local url="https://identitytoolkit.googleapis.com/v1/accounts:delete?key="..self.config.apiKey
+    self.http:request("POST",url,{idToken=newUser.idToken},nil,function()
+        self:_save(oldUser); callback(true)
     end)
 end
 

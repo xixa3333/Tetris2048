@@ -4,7 +4,8 @@ return {
     issuesUrl = "https://github.com/xixa3333/Tetris2048/issues",
     authorUrl = "https://github.com/xixa3333",
     versions = {
-        {version="2.3.5", bullets={"新增 3×3 藍色 L 方塊與完整碰撞測試", "封面加入 APP 資訊與版本摘要頁", "全球榜固定顯示自己的完整名次", "帳號改為可修改的唯一 ID，不再蒐集電子郵件"}},
+        {version="2.3.6", bullets={"修正帳號 ID 轉換失敗", "新 ID 建立後永久不可修改", "舊信箱可一次性轉移暱稱與最高分", "維持 Firebase 免費方案，不使用 Cloud Functions"}},
+        {version="2.3.5", bullets={"新增 3×3 藍色 L 方塊與完整碰撞測試", "封面加入 APP 資訊與版本摘要頁", "全球榜固定顯示自己的完整名次", "帳號改為唯一 ID，不再要求電子郵件"}},
         {version="2.3.4", bullets={"修正不同顏色交錯滑動時互相覆蓋", "新增密集棋盤與 1,000 回合自動試玩"}},
         {version="2.3.3", bullets={"加入移動、消除、放置的連續動畫", "動畫期間鎖定全部遊戲輸入"}},
         {version="2.3.2", bullets={"落地改為交易式逐格檢查", "避免方塊放置覆蓋既有格子"}},

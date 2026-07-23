@@ -75,11 +75,21 @@ test("Architecture: renderer owns separate animation and overlay groups", () => 
 
 test("Architecture: app flow depends on injected service contracts", () => {
   const contents = read("../src/app_controller.lua");
-  for (const dependency of ["view", "game", "auth", "profile", "localBoard", "globalBoard", "platform", "info"]) {
+  for (const dependency of ["view", "game", "auth", "profile", "localBoard", "globalBoard", "migration", "platform", "info"]) {
     assert(contents.includes(`d.${dependency}`), `missing app dependency: ${dependency}`);
   }
   for (const forbidden of ["display.", "native.", "network.", 'require("widget")']) {
     assert(!contents.includes(forbidden), `app controller contains platform dependency ${forbidden}`);
+  }
+});
+
+test("Architecture: legacy migration is isolated from UI and Solar2D", () => {
+  const contents = read("../src/account_migration.lua");
+  for (const dependency of ["auth", "profile", "globalBoard"]) {
+    assert(contents.includes(`self.${dependency}`), `migration is missing ${dependency}`);
+  }
+  for (const forbidden of ["display.", "native.", "network.", 'require("widget")']) {
+    assert(!contents.includes(forbidden), `migration contains platform dependency ${forbidden}`);
   }
 });
 
