@@ -1,5 +1,6 @@
 local T=require("test_helper")
 local AppController=require("app_controller")
+local AppInfo=require("app_info")
 
 local function build(signedIn)
     local user=signedIn and {uid="u",account="u@example.com"} or nil
@@ -12,11 +13,14 @@ local function build(signedIn)
     function auth:restoreSession(callback) callback(false,"NO_SESSION") end
     function auth:sendPasswordReset(_,callback) callback(true,"sent") end
     function auth:changePassword(_,callback) callback(true,"changed") end
+    function auth:changeAccount(account,callback) self.user.account=account; callback(true,"changed") end
     local view={screen=nil}; function view:showCover(actions) self.screen="cover";self.actions=actions end
     function view:showIntro(back) self.screen="intro";self.back=back end
+    function view:showAppInfo(info,model,actions) self.screen="appInfo";self.info=info;self.model=model;self.actions=actions end
     function view:showAuth(actions) self.screen="auth";self.actions=actions end
     function view:showNickname(save,back) self.screen="nickname";self.saveNickname=save;self.back=back end
     function view:showPasswordChange(save,back) self.screen="password";self.savePassword=save;self.back=back end
+    function view:showAccountChange(save,back) self.screen="account";self.saveAccount=save;self.back=back end
     function view:showLeaderboard(title,model,actions) self.screen=title;self.model=model;self.actions=actions end
     function view:showLoading() self.screen="loading" end
     function view:showError() self.screen="error" end
@@ -30,20 +34,49 @@ local function build(signedIn)
     function localBoard:listAll() return self.records end
     function localBoard:add(uid,account,score) self.records[#self.records+1]={id=tostring(#self.records+1),uid=uid,account=account,score=score} end
     function localBoard:remove(uid,id) self.removed={uid=uid,id=id}; return true end
-    local global={adds=0,records={}}; function global:list(callback) callback(true,self.records) end
+    local global={adds=0,records={}}; function global:list(callback)
+        local ownRank=nil
+        for rank,record in ipairs(self.records) do if record.uid=="u" then ownRank=rank; break end end
+        callback(true,self.records,ownRank)
+    end
     function global:add(_,callback) self.adds=self.adds+1;callback(true) end
     function global:updateNickname(callback) callback(true) end
     local profile={}
     function profile:get(callback) auth.user.nickname="測試玩家"; callback(true,"測試玩家") end
     function profile:save(nickname,callback) auth.user.nickname=nickname; callback(true,nickname) end
-    local platform={exits=0}; function platform:exit() self.exits=self.exits+1 end
-    return AppController.new({view=view,game=game,auth=auth,profile=profile,localBoard=localBoard,globalBoard=global,platform=platform,clock=function() return 1 end}),view,game,localBoard,global
+    local platform={exits=0,urls={}}; function platform:exit() self.exits=self.exits+1 end
+    function platform:openURL(url) self.urls[#self.urls+1]=url; return true end
+    return AppController.new({view=view,game=game,auth=auth,profile=profile,localBoard=localBoard,
+        globalBoard=global,platform=platform,info=AppInfo,clock=function() return 1 end}),view,game,localBoard,global,platform
 end
 
 T.test("Cover routes to game and intro without coupling game logic to screens",function()
     local app,view,game=build(false); app:start(); T.equal(view.screen,"cover")
     view.actions.intro(); T.equal(view.screen,"intro"); view.back(); T.equal(view.screen,"cover")
     view.actions.start(); T.equal(game.starts,1); T.equal(game.view.visible,true)
+end)
+
+T.test("Signed-in player can change the unique account ID independently of nickname",function()
+    local app,view=build(true); app.auth.user.nickname="原暱稱"; app:showLocalLeaderboard(); view.actions.account()
+    T.equal(view.screen,"account"); view.saveAccount("new_id")
+    T.equal(view.screen,"本機排行榜")
+    T.equal(app.auth:currentUser().account,"new_id")
+    T.equal(app.auth:currentUser().nickname,"原暱稱")
+end)
+
+T.test("Cover APP information routes through versions and safe GitHub links",function()
+    local app,view,_,_,_,platform=build(false); app:start(); view.actions.info()
+    T.equal(app.screen,"appInfo"); T.equal(view.model.items[1].version,"2.3.5")
+    view.actions.repository(); view.actions.issues(); view.actions.author()
+    T.equal(platform.urls[1],"https://github.com/xixa3333/Tetris2048")
+    T.equal(platform.urls[2],"https://github.com/xixa3333/Tetris2048/issues")
+    T.equal(platform.urls[3],"https://github.com/xixa3333")
+    T.equal(app:openExternal("https://example.com/phishing"),false)
+    T.equal(#platform.urls,3)
+    view.actions.next(); T.equal(view.model.items[1].version,"2.3.4")
+    app:onResume(); T.equal(view.screen,"appInfo"); T.equal(view.model.items[1].version,"2.3.4")
+    view.actions.previous(); T.equal(view.model.items[1].version,"2.3.5")
+    view.actions.back(); T.equal(view.screen,"cover")
 end)
 
 T.test("Auth screen exposes forgot password and signed-in account can change password",function()
@@ -86,11 +119,13 @@ T.test("Local and global leaderboards navigate ten records per page",function()
         localBoard.records[index]={id=tostring(index),uid="u",account="本機",score=100-index}
         global.records[index]={id=tostring(index),uid=tostring(index),nickname="全球",score=100-index}
     end
+    global.records[1].uid="u"
     app:showLocalLeaderboard(1)
     T.equal(#view.model.items,10); T.equal(view.model.firstRank,1); T.equal(view.model.totalPages,3)
     view.actions.next(); T.equal(view.model.page,2); T.equal(view.model.firstRank,11)
     view.actions.next(); T.equal(#view.model.items,1); T.equal(view.model.firstRank,21)
     view.actions.globalTab(); T.equal(view.screen,"全球排行榜"); T.equal(view.model.page,1)
+    T.equal(view.model.ownRank,1)
     view.actions.next(); T.equal(view.model.page,2); T.equal(#view.model.items,10)
     view.actions.previous(); T.equal(view.model.page,1)
 end)

@@ -8,10 +8,9 @@ service cloud.firestore {
 
     function validScore() {
       return request.resource.data.keys().hasOnly([
-          'uid', 'account', 'nickname', 'score', 'updatedAt', 'version'
+          'uid', 'nickname', 'score', 'updatedAt', 'version'
         ])
         && request.resource.data.uid == request.auth.uid
-        && request.resource.data.account == request.auth.token.email
         && request.resource.data.score is int
         && request.resource.data.score >= 0
         && request.resource.data.score <= 1000000000
@@ -34,9 +33,8 @@ service cloud.firestore {
     match /profiles/{userId} {
       allow read: if signedIn() && request.auth.uid == userId;
       allow create, update: if signedIn() && request.auth.uid == userId
-        && request.resource.data.keys().hasOnly(['uid', 'account', 'nickname'])
+        && request.resource.data.keys().hasOnly(['uid', 'nickname'])
         && request.resource.data.uid == request.auth.uid
-        && request.resource.data.account == request.auth.token.email
         && request.resource.data.nickname is string
         && request.resource.data.nickname.size() >= 2
         && request.resource.data.nickname.size() <= 16;

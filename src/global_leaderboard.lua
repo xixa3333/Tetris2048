@@ -7,7 +7,6 @@ local function decode(document)
     local f=document.fields or {}
     return {id=(document.name or ""):match("([^/]+)$"),uid=f.uid and f.uid.stringValue,
         nickname=f.nickname and f.nickname.stringValue or "玩家",
-        account=f.account and f.account.stringValue,
         score=tonumber(f.score and f.score.integerValue) or 0,
         playedAt=f.updatedAt and f.updatedAt.timestampValue}
 end
@@ -21,9 +20,9 @@ function GlobalLeaderboard:_headers()
 end
 function GlobalLeaderboard:_write(user,score,callback)
     self.http:request("PATCH",self.base.."/scores/"..user.uid,{fields={
-        uid=field(user.uid),account=field(user.account),nickname=field(user.nickname),
+        uid=field(user.uid),nickname=field(user.nickname),
         score=field(math.floor(score)),updatedAt={timestampValue=os.date("!%Y-%m-%dT%H:%M:%SZ")},
-        version=field("2.1.0")
+        version=field("2.3.5")
     }},self:_headers(),callback)
 end
 function GlobalLeaderboard:add(score,callback)
@@ -51,7 +50,7 @@ end
 function GlobalLeaderboard:list(callback)
     if not self.auth:isSignedIn() then callback(false,"請先登入"); return end
     local query={structuredQuery={from={{collectionId="scores"}},
-        orderBy={{field={fieldPath="score"},direction="DESCENDING"}},limit=100}}
+        orderBy={{field={fieldPath="score"},direction="DESCENDING"}}}}
     self.http:request("POST",self.base..":runQuery",query,self:_headers(),function(ok,data)
         if not ok then callback(false,data); return end
         local bestByUid={}
@@ -69,7 +68,12 @@ function GlobalLeaderboard:list(callback)
             if a.score==b.score then return a.nickname<b.nickname end
             return a.score>b.score
         end)
-        callback(true,records)
+        local user=self.auth:currentUser(); local ownRank=nil
+        for rank,record in ipairs(records) do
+            record.isCurrent=user~=nil and record.uid==user.uid
+            if record.isCurrent then ownRank=rank end
+        end
+        callback(true,records,ownRank)
     end)
 end
 return GlobalLeaderboard

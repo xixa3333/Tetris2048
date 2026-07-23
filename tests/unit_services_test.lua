@@ -33,7 +33,7 @@ end)
 T.test("Auth validates input before network access",function()
     local http={calls=0}; function http:request() self.calls=self.calls+1 end
     local auth=AuthService.new(http,{apiKey="test"}); local message
-    auth:register("bad","123456",function(ok,errorText) T.equal(ok,false); message=errorText end)
+    auth:register("a@","123456",function(ok,errorText) T.equal(ok,false); message=errorText end)
     T.equal(http.calls,0); T.truthy(message)
     auth:signIn("a@example.com","123",function(ok,errorText) T.equal(ok,false); message=errorText end)
     T.equal(http.calls,0)

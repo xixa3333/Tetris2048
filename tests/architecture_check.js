@@ -58,6 +58,14 @@ test("Architecture: board sliding tracks a shared occupancy map", () => {
   }
 });
 
+test("Assets: every configured block image exists including the blue L tile", () => {
+  const constants = read("../src/constants.lua");
+  for (const name of ["T.png", "square.png", "Z.png", "S.png", "I.png", "L.png"]) {
+    assert(constants.includes(`image/${name}`), `constants are missing ${name}`);
+    assert(fs.existsSync(`../src/image/${name}`), `block image does not exist: ${name}`);
+  }
+});
+
 test("Architecture: renderer owns separate animation and overlay groups", () => {
   const contents = read("../src/ui_renderer.lua");
   for (const token of ["animationGroup", "overlayGroup", "clearTransient"]) {
@@ -67,7 +75,7 @@ test("Architecture: renderer owns separate animation and overlay groups", () => 
 
 test("Architecture: app flow depends on injected service contracts", () => {
   const contents = read("../src/app_controller.lua");
-  for (const dependency of ["view", "game", "auth", "profile", "localBoard", "globalBoard", "platform"]) {
+  for (const dependency of ["view", "game", "auth", "profile", "localBoard", "globalBoard", "platform", "info"]) {
     assert(contents.includes(`d.${dependency}`), `missing app dependency: ${dependency}`);
   }
   for (const forbidden of ["display.", "native.", "network.", 'require("widget")']) {
@@ -75,10 +83,35 @@ test("Architecture: app flow depends on injected service contracts", () => {
   }
 });
 
+test("Architecture: APP information stays platform-independent and uses HTTPS GitHub links", () => {
+  const contents = read("../src/app_info.lua");
+  for (const forbidden of ["display.", "native.", "system.", "network."]) {
+    assert(!contents.includes(forbidden), `APP information contains platform dependency ${forbidden}`);
+  }
+  assert(!contents.includes("http://"), "APP information contains an insecure link");
+  assert(contents.includes("https://github.com/xixa3333/Tetris2048/issues"), "issue tracker link is missing");
+});
+
 test("Architecture: Firebase configuration contains no password or private key", () => {
   const contents = read("../src/firebase_config.lua").toLowerCase();
   assert(!contents.includes("password"), "Firebase configuration contains password material");
   assert(!contents.includes("private_key"), "Firebase configuration contains a private key");
+});
+
+test("Privacy: remote player documents do not persist account identifiers", () => {
+  const profile = read("../src/profile_service.lua");
+  const leaderboard = read("../src/global_leaderboard.lua");
+  const rules = read("../firebase/firestore.rules");
+  assert(!profile.includes("account=stringField"), "profile persists an account identifier");
+  assert(!leaderboard.includes("account=field"), "global leaderboard persists an account identifier");
+  assert(!rules.includes("'account'"), "Firestore rules still permit account identifiers");
+});
+
+test("UX: current global rank and row use a brighter background", () => {
+  const view = read("../src/app_view.lua");
+  assert(view.includes("rankBackground"), "own-rank highlight is missing");
+  assert(view.includes("rowBackground"), "current-player row highlight is missing");
+  assert(view.includes("record.isCurrent"), "row highlight is not tied to the current player");
 });
 
 test("Documentation: README keeps download badge and ordered player guide", () => {
