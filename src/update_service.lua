@@ -27,7 +27,7 @@ end
 
 function UpdateService:check(callback)
     self.http:request("GET",self.apiUrl,nil,{Accept="application/vnd.github+json",
-        ["User-Agent"]="Tetris2048-update-check"},function(ok,response)
+        ["User-Agent"]="BlockMerge2048-update-check"},function(ok,response)
         if not ok or type(response.tag_name)~="string" then callback(false); return end
         callback(true,{updateAvailable=UpdateService.isNewer(response.tag_name,self.currentVersion),
             version=response.tag_name:gsub("^[vV]",""),url=self.downloadUrl})

@@ -15,7 +15,7 @@ T.test("White-box: different colored components block without merging", function
     T.equal(moved[2][2], 2)
 end)
 
-T.test("White-box: a zero inside a tetromino does not overwrite the board", function()
+T.test("White-box: a zero inside a piece shape does not overwrite the board", function()
     local grid = Board.new(3, 3)
     grid[2][1] = 9
     local shape = {{1, 1, 1}, {0, 1, 0}}

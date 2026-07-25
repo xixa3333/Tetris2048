@@ -13,6 +13,8 @@ local CELL_SIZE = 35
 local EMPTY_IMAGE = "image/space.png"
 local INNER_STROKE = 1
 local OUTER_STROKE = 5
+local OUTER_SHADOW_STROKE = 7
+local OUTLINE_INSET = 3
 
 local function removeGroup(group)
     if group and group.removeSelf then group:removeSelf() end
@@ -49,7 +51,7 @@ local function createFrameGrid(group, size, originX, originY)
         for column = 1, size do
             local frame = display.newRect(group, originX + column * CELL_SIZE, originY + row * CELL_SIZE, CELL_SIZE, CELL_SIZE)
             frame:setFillColor(0, 0, 0, 0)
-            frame:setStrokeColor(0, 0, 0)
+            frame:setStrokeColor(0.02, 0.025, 0.03, 0.45)
             frame.strokeWidth = INNER_STROKE
             frame.isVisible = false
             frames[row][column] = frame
@@ -63,11 +65,30 @@ local function syncFrame(frame, visible)
     if visible then frame:toFront() end
 end
 
-local function drawEdge(group, x1, y1, x2, y2)
+local function outlineColor(value)
+    return constants.PieceOutlineColor[value] or {1, 1, 1}
+end
+
+local function drawEdge(group, x1, y1, x2, y2, value)
+    local shadow = display.newLine(group, x1, y1, x2, y2)
+    shadow:setStrokeColor(0, 0, 0, 0.86)
+    shadow.strokeWidth = OUTER_SHADOW_STROKE
+    local color = outlineColor(value)
     local line = display.newLine(group, x1, y1, x2, y2)
-    line:setStrokeColor(0, 0, 0)
+    line:setStrokeColor(color[1], color[2], color[3], 0.96)
     line.strokeWidth = OUTER_STROKE
     return line
+end
+
+local function insetEdge(edge, x1, y1, x2, y2)
+    if edge == "top" then
+        return x1, y1 + OUTLINE_INSET, x2, y2 + OUTLINE_INSET
+    elseif edge == "bottom" then
+        return x1, y1 - OUTLINE_INSET, x2, y2 - OUTLINE_INSET
+    elseif edge == "left" then
+        return x1 + OUTLINE_INSET, y1, x2 + OUTLINE_INSET, y2
+    end
+    return x1 - OUTLINE_INSET, y1, x2 - OUTLINE_INSET, y2
 end
 
 local function drawObjectOutlines(group, grid, objectGrid, originX, originY, rows, columns)
@@ -95,15 +116,19 @@ local function drawObjectOutlines(group, grid, objectGrid, originX, originY, row
                             and grid[nextRow][nextColumn] == grid[row][column]
                     end
                     if not sameObject then
+                        local value = grid[row][column]
+                        local x1, y1, x2, y2
                         if offset.edge == "top" then
-                            drawEdge(group, centerX - half, centerY - half, centerX + half, centerY - half)
+                            x1, y1, x2, y2 = centerX - half, centerY - half, centerX + half, centerY - half
                         elseif offset.edge == "bottom" then
-                            drawEdge(group, centerX - half, centerY + half, centerX + half, centerY + half)
+                            x1, y1, x2, y2 = centerX - half, centerY + half, centerX + half, centerY + half
                         elseif offset.edge == "left" then
-                            drawEdge(group, centerX - half, centerY - half, centerX - half, centerY + half)
+                            x1, y1, x2, y2 = centerX - half, centerY - half, centerX - half, centerY + half
                         else
-                            drawEdge(group, centerX + half, centerY - half, centerX + half, centerY + half)
+                            x1, y1, x2, y2 = centerX + half, centerY - half, centerX + half, centerY + half
                         end
+                        x1, y1, x2, y2 = insetEdge(offset.edge, x1, y1, x2, y2)
+                        drawEdge(group, x1, y1, x2, y2, value)
                     end
                 end
             end
@@ -123,7 +148,7 @@ end
 
 local function drawPreviewOutline(group, piece, rotation, originX, originY)
     if not piece then return end
-    local shape = Board.rotate(constants.tetrominoes[piece], rotation or 0)
+    local shape = Board.rotate(constants.pieceShapes[piece], rotation or 0)
     drawObjectOutlines(group, shape, objectGridForShape(shape), originX, originY, 4, 4)
 end
 
@@ -269,7 +294,7 @@ local function renderShape(group, outlineGroup, images, frames, piece, rotation,
         end
     end
     if not piece then return end
-    local shape = Board.rotate(constants.tetrominoes[piece], rotation or 0)
+    local shape = Board.rotate(constants.pieceShapes[piece], rotation or 0)
     for row = 1, #shape do
         for column = 1, #shape[row] do
             if shape[row][column] ~= 0 then

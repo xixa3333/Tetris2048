@@ -5,11 +5,11 @@ local Board = require("board")
 local GameLogic = {}
 
 function GameLogic.newPiece(random)
-    return random(1, #constants.tetrominoes)
+    return random(1, #constants.pieceShapes)
 end
 
 function GameLogic.shapeFor(piece, rotation)
-    return Board.rotate(constants.tetrominoes[piece], rotation)
+    return Board.rotate(constants.pieceShapes[piece], rotation)
 end
 
 -- Preview matrices may intentionally keep a 3 x 3 footprint, but empty outer

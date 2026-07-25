@@ -227,27 +227,64 @@ function Board.slideWithMoves(grid, direction, objectGrid)
         for _, cell in ipairs(component.cells) do occupied[cell.row][cell.column] = component end
     end
 
-    local movedInPass
-    repeat
-        movedInPass = false
+    local function movementPlan()
+        local plans = {}
         for _, component in ipairs(components) do
-            local canMove = true
+            local plan = {component = component, blocked = false, dependencies = {}}
+            plans[component] = plan
             for _, cell in ipairs(component.cells) do
                 local row, column = cell.row + delta.row, cell.column + delta.column
                 local owner = occupied[row] and occupied[row][column]
-                if not occupied[row] or owner == nil or (owner and owner ~= component) then
-                    canMove = false
+                if not occupied[row] or owner == nil then
+                    plan.blocked = true
                     break
+                elseif owner and owner ~= component then
+                    plan.dependencies[owner] = true
                 end
             end
-            if canMove then
+        end
+        local visiting, memo = {}, {}
+        local function canMove(component)
+            if memo[component] ~= nil then return memo[component] end
+            local plan = plans[component]
+            if not plan or plan.blocked then memo[component] = false; return false end
+            if visiting[component] then memo[component] = false; return false end
+            visiting[component] = true
+            for dependency in pairs(plan.dependencies) do
+                if not canMove(dependency) then
+                    visiting[component] = nil
+                    memo[component] = false
+                    return false
+                end
+            end
+            visiting[component] = nil
+            memo[component] = true
+            return true
+        end
+        local movable = {}
+        for _, component in ipairs(components) do
+            if canMove(component) then movable[#movable + 1] = component end
+        end
+        return movable
+    end
+
+    local movedInPass
+    repeat
+        movedInPass = false
+        local movable = movementPlan()
+        if #movable > 0 then
+            for _, component in ipairs(movable) do
                 for _, cell in ipairs(component.cells) do occupied[cell.row][cell.column] = false end
+            end
+            for _, component in ipairs(movable) do
                 for _, cell in ipairs(component.cells) do
                     cell.row, cell.column = cell.row + delta.row, cell.column + delta.column
                 end
-                for _, cell in ipairs(component.cells) do occupied[cell.row][cell.column] = component end
-                movedInPass = true
             end
+            for _, component in ipairs(movable) do
+                for _, cell in ipairs(component.cells) do occupied[cell.row][cell.column] = component end
+            end
+            movedInPass = true
         end
     until not movedInPass
 

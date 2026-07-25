@@ -12,8 +12,9 @@ local function build(background,effect)
     return AudioService.new(audio,{background="bg",eliminate="clear",gameOver="over"},settings),audio,settings
 end
 T.test("Audio service applies percentage volumes to dedicated channels",function()
-    local sound,audio=build(25,60); sound:playBackground(); sound:playEliminate()
+    local sound,audio=build(25,60); sound:playBackground(); sound:playEliminate(); sound:playGameOver()
     T.equal(audio.volumes[1],0.25); T.equal(audio.volumes[2],0.6)
+    T.equal(audio.volumes[3],0.6)
 end)
 T.test("Muted channels do not play and home stops background",function()
     local sound,audio=build(0,0); sound:playBackground(); sound:playEliminate(); sound:playGameOver()

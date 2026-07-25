@@ -1,28 +1,95 @@
 -- Static metadata shared by the controller, view and tests.
 return {
-    currentVersion = "2.3.9",
+    currentVersion = "2.4.0",
+    displayName = "BlockMerge 2048",
     repositoryUrl = "https://github.com/xixa3333/Tetris2048",
     issuesUrl = "https://github.com/xixa3333/Tetris2048/issues",
     authorUrl = "https://github.com/xixa3333",
     latestReleaseUrl = "https://github.com/xixa3333/Tetris2048/releases/latest",
     latestReleaseApiUrl = "https://api.github.com/repos/xixa3333/Tetris2048/releases/latest",
     versions = {
-        {version="2.3.9", bullets={"新增模式1與模式2選擇", "模式1保留 2.3.8 同色合併規則", "模式2保留 2.3.9 獨立物件規則", "本機與全球排行榜依模式分開", "移動動畫期間未移動物件外框會保留"}},
-        {version="2.3.8", bullets={"修正建立與修改暱稱失敗", "Firestore 路徑改用相容 URL 編碼", "暱稱按 Unicode 字元計算", "錯誤訊息會顯示真正失敗原因"}},
-        {version="2.3.7", bullets={"新增設定、音量與可重現關卡種子", "設定頁統一封面版面並顯示目前版本", "完整搜尋目前旋轉方向的合法落點", "啟動時自動提示 GitHub 最新版本"}},
-        {version="2.3.6", bullets={"修正帳號 ID 轉換失敗", "新 ID 建立後永久不可修改", "舊信箱可一次性轉移暱稱與最高分", "維持 Firebase 免費方案，不使用 Cloud Functions"}},
-        {version="2.3.5", bullets={"新增 3×3 藍色 L 方塊與完整碰撞測試", "封面加入 APP 資訊與版本摘要頁", "全球榜固定顯示自己的完整名次", "帳號改為唯一 ID，不再要求電子郵件"}},
-        {version="2.3.4", bullets={"修正不同顏色交錯滑動時互相覆蓋", "新增密集棋盤與 1,000 回合自動試玩"}},
-        {version="2.3.3", bullets={"加入移動、消除、放置的連續動畫", "動畫期間鎖定全部遊戲輸入"}},
-        {version="2.3.2", bullets={"落地改為交易式逐格檢查", "避免方塊放置覆蓋既有格子"}},
-        {version="2.3.1", bullets={"補充遊戲規則、得分與操作說明", "更新 README 展示畫面與下載資訊"}},
-        {version="2.3.0", bullets={"本機與全球排行榜每頁顯示 10 筆", "加入排行榜換頁與邊界處理"}},
-        {version="2.2.1", bullets={"調整 Game Over 按鈕為上下排列", "零分不寫入本機排行榜"}},
-        {version="2.2.0", bullets={"新增封面、登入與排行榜流程", "加入密碼、暱稱及背景恢復功能"}},
-        {version="2.1.0", bullets={"全球排行榜每帳號只保留最高分", "加入暱稱與手機滑動操作"}},
-        {version="2.0.0", bullets={"重整為低耦合前後端分離架構", "加入 Firebase 帳號與全球排行榜"}},
-        {version="1.1.0", bullets={"修正重新開始殘留動畫與文字", "補強基礎遊戲流程測試"}},
-        {version="1.0.5", bullets={"修正初期遊戲穩定性問題"}},
-        {version="1.0.0", bullets={"Tetris2048 第一個公開版本"}}
+        {version = "2.4.0", bullets = {
+            "玩家可見名稱調整為 BlockMerge 2048，降低與既有品牌的混淆風險。",
+            "彩色拼片改為中性命名與圓角寶石風格，移除舊的形狀字母資產命名。",
+            "滑動規則改為依賴式同步位移，前方拼片可移動時不再錯誤擋住後方拼片。",
+            "消除音效與 Game Over 音效共用同一個效果音量設定。",
+            "新增第七種 aqua 青色翻轉角形拼片。"
+        }},
+        {version = "2.3.9", bullets = {
+            "加入模式 1 與模式 2。",
+            "模式 1 保留 v2.3.8 的同色連動玩法。",
+            "模式 2 改為同色相鄰也保持不同物件，難度較低。",
+            "排行榜依模式分開記錄。",
+            "修正動畫期間外框顯示、全球排行榜模式篩選與合法位置判定。"
+        }},
+        {version = "2.3.8", bullets = {
+            "加入設定頁、背景音樂音量、效果音量與種子設定。",
+            "修正 Firestore 預設資料庫 URL。",
+            "改善暱稱 Unicode 驗證。",
+            "加入啟動時版本更新檢查。"
+        }},
+        {version = "2.3.7", bullets = {
+            "修正合法位置判定，避免仍有空位卻提早 Game Over。",
+            "重新整理 README 與版本資訊。",
+            "加入主畫面版本號。",
+            "改善排行榜與登入相關流程。"
+        }},
+        {version = "2.3.6", bullets = {
+            "帳號 ID 改為不可修改。",
+            "舊電子郵件帳號可遷移成永久帳號 ID。",
+            "保留 Firebase 內部登入相容性。"
+        }},
+        {version = "2.3.5", bullets = {
+            "加入 3x3 角形拼片。",
+            "加入 APP 資訊頁與版本摘要。",
+            "全球排行榜顯示自己的名次。",
+            "帳號顯示從電子郵件改為公開 ID。"
+        }},
+        {version = "2.3.4", bullets = {
+            "改善排行榜分頁與手機顯示。",
+            "加入本機排行榜命名與零分排除。"
+        }},
+        {version = "2.3.3", bullets = {
+            "修正放置時覆蓋既有拼片的問題。",
+            "加強移動、消除、放置流程鎖定。"
+        }},
+        {version = "2.3.2", bullets = {
+            "改善 Game Over 按鈕排版。",
+            "修正本機排行榜記錄規則。"
+        }},
+        {version = "2.3.1", bullets = {
+            "更新遊戲介紹與 README。",
+            "加入展示圖片與下載 badge。"
+        }},
+        {version = "2.3.0", bullets = {
+            "排行榜改為每頁 10 筆。",
+            "加入換頁操作。"
+        }},
+        {version = "2.2.1", bullets = {
+            "修正 Game Over 後返回主畫面與重新開始流程。",
+            "改善手機滑動控制。"
+        }},
+        {version = "2.2.0", bullets = {
+            "加入封面、遊戲介紹、排行榜與退出選項。",
+            "加入本機與全球排行榜。"
+        }},
+        {version = "2.1.0", bullets = {
+            "加入帳號、密碼與暱稱功能。",
+            "加入全球排行榜資料同步。"
+        }},
+        {version = "2.0.0", bullets = {
+            "重構遊戲流程、UI 與排行榜架構。",
+            "加入 Firebase 後端整合。"
+        }},
+        {version = "1.1.0", bullets = {
+            "改善遊戲重新開始流程。",
+            "更新遊戲規則說明。"
+        }},
+        {version = "1.0.5", bullets = {
+            "整理 release 檔案與下載資訊。"
+        }},
+        {version = "1.0.0", bullets = {
+            "初始遊戲版本。"
+        }}
     }
 }

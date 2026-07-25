@@ -104,6 +104,24 @@ T.test("Board.slide never overwrites interleaved components", function()
     end
 end)
 
+T.test("Board.slide lets dependent components move together in the selected direction", function()
+    local grid = Board.new(5, 5)
+    local objects = Board.new(5, 5)
+    grid[3][2], objects[3][2] = 1, 101
+    grid[2][1], objects[2][1] = 2, 202
+    grid[3][1], objects[3][1] = 2, 202
+    grid[4][1], objects[4][1] = 2, 202
+    grid[4][2], objects[4][2] = 2, 202
+    local moved, _, movedObjects = Board.slideWithMoves(grid, "up", objects)
+    T.equal(moved[1][1], 2)
+    T.equal(moved[2][1], 2)
+    T.equal(moved[3][1], 2)
+    T.equal(moved[3][2], 2)
+    T.equal(moved[1][2], 1)
+    T.equal(movedObjects[3][2], 202)
+    T.equal(movedObjects[1][2], 101)
+end)
+
 T.test("Board.clearCompletedLines clears row and column intersections once", function()
     local grid = {
         {1, 1, 1},

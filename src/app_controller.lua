@@ -26,7 +26,7 @@ function AppController:showCover()
         leaderboard=function() self:openLeaderboard() end,info=function() self:showAppInfo() end,
         settings=function() self:showSettings() end,
         exit=function() self.platform:exit() end,
-        version=self.info.currentVersion},self.auth:currentUser())
+        version=self.info.currentVersion,displayName=self.info.displayName},self.auth:currentUser())
 end
 function AppController:showModeSelect()
     self.screen="modeSelect"

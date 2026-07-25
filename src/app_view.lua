@@ -17,7 +17,7 @@ local function button(group,value,x,y,action,width,height)
 end
 function AppView.new() return setmetatable({fields={}},AppView) end
 function AppView:showUpdatePrompt(version,update)
-    native.showAlert("發現新版本","Tetris2048 v"..version.." 已發布，是否前往下載？",
+    native.showAlert("發現新版本","BlockMerge 2048 v"..version.." 已發布，是否前往下載？",
         {"前往下載","稍後"},function(event)
             if event.action=="clicked" and event.index==1 then update() end
         end)
@@ -32,8 +32,8 @@ function AppView:_screen(title)
     text(self.group,title,250,85,42,ACCENT); return self.group
 end
 function AppView:showCover(actions,user)
-    local g=self:_screen("TETRIS 2048")
-    text(g,"方塊 × 滑動 × 消除",250,145,21,CYAN)
+    local g=self:_screen((actions.displayName or "BlockMerge 2048"):upper())
+    text(g,"滑動 × 合併感 × 行列消除",250,145,21,CYAN)
     if user then text(g,"玩家："..(user.nickname or user.account),250,190,18,BRIGHT) end
     button(g,"遊戲開始",250,260,actions.start)
     button(g,"遊戲介紹",250,335,actions.intro)
@@ -61,9 +61,9 @@ function AppView:showSettings(model,save,back)
     local background=widget.newSlider({x=250,y=215,width=360,value=model.backgroundVolume,
         listener=function(event) model.backgroundVolume=math.floor(event.value+0.5); backgroundLabel.text="背景音樂："..model.backgroundVolume.."%" end})
     g:insert(background)
-    local effectLabel=text(g,"消除音效："..model.effectVolume.."%",250,290,21,BRIGHT)
+    local effectLabel=text(g,"消除 / Game Over 音效："..model.effectVolume.."%",250,290,21,BRIGHT)
     local effect=widget.newSlider({x=250,y=340,width=360,value=model.effectVolume,
-        listener=function(event) model.effectVolume=math.floor(event.value+0.5); effectLabel.text="消除音效："..model.effectVolume.."%" end})
+        listener=function(event) model.effectVolume=math.floor(event.value+0.5); effectLabel.text="消除 / Game Over 音效："..model.effectVolume.."%" end})
     g:insert(effect)
     text(g,"關卡種子",250,420,23,ACCENT)
     text(g,"相同種子會重現相同的方塊與落點順序，\n適合和朋友挑戰同一關；留空就是一般隨機。",250,475,17,BRIGHT)

@@ -12,7 +12,7 @@ end)
 T.test("Update checker returns only the configured trusted download URL",function()
     local http={}
     function http:request(method,url,body,headers,callback)
-        T.equal(method,"GET"); T.equal(headers["User-Agent"],"Tetris2048-update-check")
+        T.equal(method,"GET"); T.equal(headers["User-Agent"],"BlockMerge2048-update-check")
         callback(true,{tag_name="v2.3.9",html_url="https://example.com/phishing"})
     end
     local service=UpdateService.new(http,{currentVersion="2.3.8",latestReleaseApiUrl="https://api.github.test/latest",
@@ -37,7 +37,7 @@ T.test("Update checker prompts an older mobile build to open the latest release"
         T.equal(result.url,"https://github.com/xixa3333/Tetris2048/releases/latest")
     end)
     T.equal(requested.method,"GET")
-    T.equal(requested.userAgent,"Tetris2048-update-check")
+    T.equal(requested.userAgent,"BlockMerge2048-update-check")
 end)
 
 T.test("Update checker silently reports network and malformed response failures",function()

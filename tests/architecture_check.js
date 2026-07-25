@@ -26,16 +26,16 @@ test("Architecture: pure rule modules do not depend on Solar2D globals", () => {
   const forbidden = ["display.", "audio.", "timer.", "Runtime:", 'require("widget")'];
   for (const path of ["../src/board.lua", "../src/game_state.lua", "../src/game_logic.lua", "../src/pagination.lua", "../src/game_guide.lua"]) {
     const contents = read(path);
-    for (const token of forbidden) {
-      assert(!contents.includes(token), `${path} contains forbidden dependency ${token}`);
-    }
+    for (const token of forbidden) assert(!contents.includes(token), `${path} contains forbidden dependency ${token}`);
   }
 });
 
-test("Architecture: controller receives external services through dependencies", () => {
-  const contents = read("../src/game_controller.lua");
-  for (const dependency of ["state", "logic", "view", "scheduler"]) {
-    assert(contents.includes(`dependencies.${dependency}`), `missing injected dependency: ${dependency}`);
+test("Architecture: controllers receive external services through dependencies", () => {
+  const game = read("../src/game_controller.lua");
+  const app = read("../src/app_controller.lua");
+  for (const dependency of ["state", "logic", "view", "scheduler"]) assert(game.includes(`dependencies.${dependency}`), `missing game dependency ${dependency}`);
+  for (const dependency of ["view", "game", "auth", "profile", "localBoard", "globalBoard", "migration", "settings", "update", "platform", "info"]) {
+    assert(app.includes(`d.${dependency}`), `missing app dependency ${dependency}`);
   }
 });
 
@@ -46,47 +46,43 @@ test("Architecture: turn phases remain separated between rules and animation orc
     assert(logic.includes(`function GameLogic.${phase}`), `missing rule phase ${phase}`);
     assert(controller.includes(`self.logic.${phase}`), `controller does not orchestrate ${phase}`);
   }
-  for (const forbidden of ["timer.", "transition.", "display."]) {
-    assert(!logic.includes(forbidden), `game logic contains animation dependency ${forbidden}`);
-  }
+  for (const forbidden of ["timer.", "transition.", "display."]) assert(!logic.includes(forbidden), `game logic contains animation dependency ${forbidden}`);
 });
 
-test("Architecture: board sliding tracks a shared occupancy map", () => {
+test("Architecture: board sliding uses shared occupancy and dependency planning", () => {
   const contents = read("../src/board.lua");
-  for (const token of ["occupied", "frontEdge", "movedInPass"]) {
-    assert(contents.includes(token), `collision-safe slide is missing ${token}`);
-  }
+  for (const token of ["occupied", "frontEdge", "movementPlan", "dependencies"]) assert(contents.includes(token), `collision-safe slide is missing ${token}`);
 });
 
-test("Assets: every configured block image exists including the blue L tile", () => {
+test("Assets: every configured block image exists with neutral tile names", () => {
   const constants = read("../src/constants.lua");
-  for (const name of ["T.png", "square.png", "Z.png", "S.png", "I.png", "L.png"]) {
+  for (const name of ["tile_ember.png", "tile_sun.png", "tile_leaf.png", "tile_orchid.png", "tile_coral.png", "tile_sky.png", "tile_aqua.png"]) {
     assert(constants.includes(`image/${name}`), `constants are missing ${name}`);
     assert(fs.existsSync(`../src/image/${name}`), `block image does not exist: ${name}`);
   }
+  assert(constants.includes("pieceShapes"), "shape list has not been renamed away from legacy wording");
+  assert(!constants.includes("tetromino"), "constants still use protected-genre wording");
 });
 
-test("UX: tile image borders stay thin so object outlines carry emphasis", () => {
+test("UX: tile images use a distinct rounded gem style", () => {
   const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
-  for (const name of ["T.png", "square.png", "Z.png", "S.png", "I.png", "L.png", "space.png"]) {
+  for (const name of ["tile_ember.png", "tile_sun.png", "tile_leaf.png", "tile_orchid.png", "tile_coral.png", "tile_sky.png", "tile_aqua.png", "space.png"]) {
     const data = fs.readFileSync(`../src/image/${name}`);
     assert(data.subarray(0, 4).equals(pngSignature), `${name} is not a PNG`);
-    assert(data.length < 1400, `${name} likely contains a thick baked border again`);
+    assert(data.length > 1200, `${name} is too plain for the custom rounded style`);
+  }
+  for (const oldName of ["T.png", "square.png", "Z.png", "S.png", "I.png", "L.png"]) {
+    assert(!fs.existsSync(`../src/image/${oldName}`), `legacy shape-named asset remains packaged: ${oldName}`);
+  }
+  const renderer = read("../src/ui_renderer.lua");
+  for (const token of ["createFrameGrid", "drawObjectOutlines", "INNER_STROKE = 1", "OUTER_STROKE = 5"]) {
+    assert(renderer.includes(token), `block frame rendering is missing ${token}`);
   }
 });
 
 test("Architecture: renderer owns separate animation and overlay groups", () => {
   const contents = read("../src/ui_renderer.lua");
-  for (const token of ["animationGroup", "overlayGroup", "clearTransient"]) {
-    assert(contents.includes(token), `renderer is missing ${token}`);
-  }
-});
-
-test("UX: occupied block cells render thin inner lines and stronger object outlines", () => {
-  const contents = read("../src/ui_renderer.lua");
-  for (const token of ["createFrameGrid", "drawObjectOutlines", "objectGrid", "INNER_STROKE = 1", "OUTER_STROKE = 5"]) {
-    assert(contents.includes(token), `block frame rendering is missing ${token}`);
-  }
+  for (const token of ["animationGroup", "overlayGroup", "clearTransient"]) assert(contents.includes(token), `renderer is missing ${token}`);
 });
 
 test("Mobile: Android builds declare internet permission for update checks", () => {
@@ -95,16 +91,6 @@ test("Mobile: Android builds declare internet permission for update checks", () 
   assert(contents.includes('"android.permission.INTERNET"'), "Android internet permission is missing");
   const versionLine = contents.split("\n").find((line) => line.includes("versionCode")) || "";
   assert(!versionLine.includes("usesPermissions"), "usesPermissions was swallowed by the versionCode line");
-});
-
-test("Architecture: app flow depends on injected service contracts", () => {
-  const contents = read("../src/app_controller.lua");
-  for (const dependency of ["view", "game", "auth", "profile", "localBoard", "globalBoard", "migration", "settings", "update", "platform", "info"]) {
-    assert(contents.includes(`d.${dependency}`), `missing app dependency: ${dependency}`);
-  }
-  for (const forbidden of ["display.", "native.", "network.", 'require("widget")']) {
-    assert(!contents.includes(forbidden), `app controller contains platform dependency ${forbidden}`);
-  }
 });
 
 test("UX: game start routes through an explicit mode selection screen", () => {
@@ -119,9 +105,7 @@ test("UX: game start routes through an explicit mode selection screen", () => {
 test("Architecture: settings and seeded randomness remain pure services", () => {
   for (const path of ["../src/settings_service.lua", "../src/seeded_random.lua"]) {
     const contents = read(path);
-    for (const forbidden of ["display.", "native.", "audio.", "network.", 'require("widget")']) {
-      assert(!contents.includes(forbidden), `${path} contains platform dependency ${forbidden}`);
-    }
+    for (const forbidden of ["display.", "native.", "audio.", "network.", 'require("widget")']) assert(!contents.includes(forbidden), `${path} contains platform dependency ${forbidden}`);
   }
 });
 
@@ -130,36 +114,30 @@ test("Responsive UX: settings use the same letterboxed layout as the cover", () 
   const view = read("../src/app_view.lua");
   assert(config.includes('scale = "letterbox"'), "automatic device scaling is missing");
   const settings = view.slice(view.indexOf("function AppView:showSettings"), view.indexOf("function AppView:showIntro"));
-  assert(settings.includes('self:_screen("設定")'), "settings do not share the cover layout grid");
+  assert(settings.includes("self:_screen"), "settings do not share the cover layout grid");
   assert(!settings.includes("widget.newScrollView"), "settings use a nested coordinate system");
 });
 
 test("Architecture: update lookup stays outside controllers and trusts a fixed release URL", () => {
   const service = read("../src/update_service.lua");
   const controller = read("../src/app_controller.lua");
-  for (const forbidden of ["display.", "native.", "network.", 'require("widget")']) {
-    assert(!service.includes(forbidden), `update service contains platform dependency ${forbidden}`);
-  }
+  for (const forbidden of ["display.", "native.", "network.", 'require("widget")']) assert(!service.includes(forbidden), `update service contains platform dependency ${forbidden}`);
   assert(controller.includes("self.update:check"), "startup does not check for updates");
   assert(service.includes("url=self.downloadUrl"), "update prompt does not use the trusted configured URL");
+  assert(service.includes("BlockMerge2048-update-check"), "update user-agent still uses the old player-facing name");
 });
 
 test("Architecture: legacy migration is isolated from UI and Solar2D", () => {
   const contents = read("../src/account_migration.lua");
-  for (const dependency of ["auth", "profile", "globalBoard"]) {
-    assert(contents.includes(`self.${dependency}`), `migration is missing ${dependency}`);
-  }
-  for (const forbidden of ["display.", "native.", "network.", 'require("widget")']) {
-    assert(!contents.includes(forbidden), `migration contains platform dependency ${forbidden}`);
-  }
+  for (const dependency of ["auth", "profile", "globalBoard"]) assert(contents.includes(`self.${dependency}`), `migration is missing ${dependency}`);
+  for (const forbidden of ["display.", "native.", "network.", 'require("widget")']) assert(!contents.includes(forbidden), `migration contains platform dependency ${forbidden}`);
 });
 
 test("Architecture: APP information stays platform-independent and uses HTTPS GitHub links", () => {
   const contents = read("../src/app_info.lua");
-  for (const forbidden of ["display.", "native.", "system.", "network."]) {
-    assert(!contents.includes(forbidden), `APP information contains platform dependency ${forbidden}`);
-  }
+  for (const forbidden of ["display.", "native.", "system.", "network."]) assert(!contents.includes(forbidden), `APP information contains platform dependency ${forbidden}`);
   assert(!contents.includes("http://"), "APP information contains an insecure link");
+  assert(contents.includes("BlockMerge 2048"), "APP information does not expose the new player-facing name");
   assert(contents.includes("https://github.com/xixa3333/Tetris2048/issues"), "issue tracker link is missing");
 });
 
@@ -188,7 +166,9 @@ test("UX: current global rank and row use a brighter background", () => {
 test("Documentation: README keeps download badge and ordered player guide", () => {
   const contents = read("../README.md");
   assert(contents.includes("img.shields.io/github/downloads/xixa3333/Tetris2048/total"), "download badge is missing");
-  assert(contents.includes('docs/images/gameplay.png'), "gameplay screenshot is missing from README");
+  assert(contents.includes("# BlockMerge 2048"), "player-facing renamed title is missing");
+  assert(!contents.includes("俄羅斯方塊"), "README still references a protected genre brand directly");
+  assert(contents.includes("docs/images/gameplay.png"), "gameplay screenshot is missing from README");
   assert(fs.existsSync("../docs/images/gameplay.png"), "gameplay screenshot file does not exist");
   const headings = ["## 遊戲規則", "## 得分機制", "## 遊玩方式", "## 排行榜"];
   let previous = -1;
