@@ -2,6 +2,8 @@
 
 This project can build iOS on a GitHub Actions macOS runner and upload the IPA to TestFlight.
 
+If another Apple Developer Program holder is helping with signing, send them `docs/iOS-Helper-Secrets.md` and ask them to add the GitHub Secrets directly. They do not need your Apple ID password, and you do not need theirs.
+
 ## Required Apple setup
 
 You need:
