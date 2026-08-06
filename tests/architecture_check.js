@@ -141,10 +141,14 @@ test("Architecture: APP information stays platform-independent and uses HTTPS Gi
   assert(contents.includes("https://github.com/xixa3333/Tetris2048/issues"), "issue tracker link is missing");
 });
 
-test("Architecture: Firebase configuration contains no password or private key", () => {
-  const contents = read("../src/firebase_config.lua").toLowerCase();
+test("Architecture: Firebase configuration example contains no live secret material", () => {
+  const contents = read("../src/firebase_config.example.lua").toLowerCase();
   assert(!contents.includes("password"), "Firebase configuration contains password material");
   assert(!contents.includes("private_key"), "Firebase configuration contains a private key");
+  assert(!contents.includes("AIza"), "Firebase configuration example contains a live Google API key");
+  const loader = read("../src/firebase_config_loader.lua");
+  assert(loader.includes("firebase_config.local"), "Firebase config loader does not prefer local-only config");
+  assert(loader.includes("firebase_config.example"), "Firebase config loader does not fall back to example config");
 });
 
 test("Privacy: remote player documents do not persist account identifiers", () => {
@@ -170,7 +174,7 @@ test("Documentation: README keeps download badge and ordered player guide", () =
   assert(!contents.includes("俄羅斯方塊"), "README still references a protected genre brand directly");
   assert(contents.includes("docs/images/gameplay.png"), "gameplay screenshot is missing from README");
   assert(fs.existsSync("../docs/images/gameplay.png"), "gameplay screenshot file does not exist");
-  const headings = ["## 遊戲規則", "## 得分機制", "## 遊玩方式", "## 排行榜"];
+  const headings = ["## 遊戲目標", "## 基本玩法", "## 得分與消除機制", "## 排行榜"];
   let previous = -1;
   for (const heading of headings) {
     const position = contents.indexOf(heading);
