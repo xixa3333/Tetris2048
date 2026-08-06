@@ -199,7 +199,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          FASTLANE_DIR="$RUNNER_TEMP/fastlane-signing"
+          FASTLANE_ROOT="$RUNNER_TEMP/fastlane-signing"
+          FASTLANE_DIR="$FASTLANE_ROOT/fastlane"
           mkdir -p "$FASTLANE_DIR"
 
           cat > "$FASTLANE_DIR/Fastfile" <<'RUBY'
@@ -232,7 +233,10 @@ jobs:
           RUBY
 
           (
-            cd "$FASTLANE_DIR"
+            cd "$FASTLANE_ROOT"
+            FASTLANE_SKIP_UPDATE_CHECK=1 \
+            FASTLANE_HIDE_CHANGELOG=1 \
+            FASTLANE_OPT_OUT_USAGE=1 \
             fastlane ios sync_signing
           )
 
