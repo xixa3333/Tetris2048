@@ -105,6 +105,8 @@ find_icon_source() {
     "$PROJECT_PATH/icon-1024.png"
     "$PROJECT_PATH/Icon.png"
     "$PROJECT_PATH/icon.png"
+    "$PROJECT_PATH/image/Icon-1024.png"
+    "$PROJECT_PATH/image/icon-1024.png"
     "$PROJECT_PATH/assets/Icon.png"
     "$PROJECT_PATH/assets/icon.png"
   )
@@ -134,7 +136,7 @@ find_icon_source() {
 ICON_SOURCE="$(find_icon_source || true)"
 if [[ -z "$ICON_SOURCE" || ! -f "$ICON_SOURCE" ]]; then
   echo "No square PNG app icon was found under src/." >&2
-  echo "Add src/Icon-1024.png (1024x1024, PNG, no transparency) and run again." >&2
+  echo "Add src/image/Icon-1024.png (1024x1024, PNG, no transparency) and run again." >&2
   exit 1
 fi
 

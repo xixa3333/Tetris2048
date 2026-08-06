@@ -30,6 +30,9 @@ Create these at:
 | `APP_STORE_CONNECT_API_KEY_ID` | App Store Connect API key ID |
 | `APP_STORE_CONNECT_API_ISSUER_ID` | App Store Connect issuer ID |
 | `APP_STORE_CONNECT_API_KEY_BASE64` | Base64 text of the `AuthKey_XXXX.p8` file |
+| `FIREBASE_PROJECT_ID` | Firebase project ID used by the game client |
+| `FIREBASE_API_KEY` | Firebase Web API key used by the game client |
+| `FIREBASE_APP_ID` | Firebase Web App ID used by the game client |
 
 PowerShell Base64 examples:
 

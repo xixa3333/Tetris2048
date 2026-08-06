@@ -59,6 +59,9 @@ jobs:
       APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
       APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
       APP_STORE_CONNECT_API_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
+      FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+      FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
+      FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
       MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
       MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
 
@@ -81,6 +84,9 @@ jobs:
             APP_STORE_CONNECT_API_KEY_ID
             APP_STORE_CONNECT_API_ISSUER_ID
             APP_STORE_CONNECT_API_KEY_BASE64
+            FIREBASE_PROJECT_ID
+            FIREBASE_API_KEY
+            FIREBASE_APP_ID
             MATCH_PASSWORD
             MATCH_GIT_BASIC_AUTHORIZATION
           )
@@ -124,6 +130,35 @@ jobs:
 
           echo "Signing storage: $match_repo @ $MATCH_GIT_BRANCH"
           echo "App version/build: ${{ inputs.app_version }} ($IOS_BUILD_NUMBER)"
+
+      - name: Generate Firebase client config
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cat > src/firebase_config.local.lua <<'LUA'
+          return {
+              projectId = "__FIREBASE_PROJECT_ID__",
+              apiKey = "__FIREBASE_API_KEY__",
+              appId = "__FIREBASE_APP_ID__"
+          }
+          LUA
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+
+          path = Path("src/firebase_config.local.lua")
+          text = path.read_text(encoding="utf-8")
+          replacements = {
+              "__FIREBASE_PROJECT_ID__": os.environ["FIREBASE_PROJECT_ID"],
+              "__FIREBASE_API_KEY__": os.environ["FIREBASE_API_KEY"],
+              "__FIREBASE_APP_ID__": os.environ["FIREBASE_APP_ID"],
+          }
+          for key, value in replacements.items():
+              text = text.replace(key, value.replace("\\", "\\\\").replace('"', '\\"'))
+          path.write_text(text, encoding="utf-8")
+          PY
 
       - name: Validate match repository access
         shell: bash

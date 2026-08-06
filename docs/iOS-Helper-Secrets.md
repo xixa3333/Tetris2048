@@ -28,6 +28,9 @@
 | `APP_STORE_CONNECT_API_KEY_ID` | App Store Connect API Key ID |
 | `APP_STORE_CONNECT_API_ISSUER_ID` | App Store Connect Issuer ID |
 | `APP_STORE_CONNECT_API_KEY_BASE64` | `.p8` API 私鑰檔案轉成 Base64 後的文字 |
+| `FIREBASE_PROJECT_ID` | Firebase 專案 ID，例如 `xixa3333-tetris2048` |
+| `FIREBASE_API_KEY` | Firebase Web API Key。請先在 Google Cloud Console 限制可用 API |
+| `FIREBASE_APP_ID` | Firebase Web App ID |
 
 ## Windows 轉 Base64 指令
 
@@ -50,6 +53,8 @@ base64 -i AuthKey_XXXXXXXXXX.p8 | pbcopy
 ## 設定完成後
 
 設定完成後通知專案維護者，就可以到 GitHub Actions 手動執行 `Build iOS`。如果 Secrets 都正確，流程會打包 iOS 檔案並上傳到 TestFlight。
+
+iOS 打包流程會在 GitHub Actions 裡用 `FIREBASE_PROJECT_ID`、`FIREBASE_API_KEY`、`FIREBASE_APP_ID` 暫時產生 `src/firebase_config.local.lua`。這個檔案不會提交到 GitHub，但會被包進 iOS App，讓登入與排行榜可以正常連線。
 
 ## 安全提醒
 

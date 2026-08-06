@@ -149,6 +149,10 @@ test("Architecture: Firebase configuration example contains no live secret mater
   const loader = read("../src/firebase_config_loader.lua");
   assert(loader.includes("firebase_config.local"), "Firebase config loader does not prefer local-only config");
   assert(loader.includes("firebase_config.example"), "Firebase config loader does not fall back to example config");
+  const iosWorkflow = read("../.github/workflows/build-ios-final.yml");
+  for (const secret of ["FIREBASE_PROJECT_ID", "FIREBASE_API_KEY", "FIREBASE_APP_ID"]) {
+    assert(iosWorkflow.includes(secret), `iOS workflow does not generate Firebase config from ${secret}`);
+  }
 });
 
 test("Privacy: remote player documents do not persist account identifiers", () => {
