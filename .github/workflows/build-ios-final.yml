@@ -136,26 +136,31 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [[ ! -d "/Applications/Corona" ]]; then
+          # Homebrew installs Solar2D as a versioned app suite, for example:
+          # /Applications/Corona-3731
+          if ! brew list --cask solar2d >/dev/null 2>&1; then
             brew install --cask solar2d
           fi
 
-          candidates=(
-            "/Applications/Corona/Native/Corona/mac/bin/CoronaBuilder"
-            "/Applications/Corona/Native/Corona/mac/bin/CoronaBuilder.app/Contents/MacOS/CoronaBuilder"
-          )
+          echo "Installed Solar2D paths:"
+          brew list --cask solar2d || true
 
           CORONA_BUILDER=""
-          for candidate in "${candidates[@]}"; do
+          while IFS= read -r candidate; do
             if [[ -x "$candidate" ]]; then
               CORONA_BUILDER="$candidate"
               break
             fi
-          done
+          done < <(
+            find /Applications -maxdepth 12               \( -type f -o -type l \)               \(                 -path '*/Native/Corona/mac/bin/CoronaBuilder' -o                 -path '*/Native/Corona/mac/bin/CoronaBuilder.app/Contents/MacOS/CoronaBuilder'               \)               -print 2>/dev/null | sort -r
+          )
 
           if [[ -z "$CORONA_BUILDER" ]]; then
             echo "::error::CoronaBuilder was not found after installing Solar2D."
-            find /Applications/Corona -name 'CoronaBuilder*' -print 2>/dev/null || true
+            echo "Solar2D suites under /Applications:"
+            find /Applications -maxdepth 2 -name 'Corona-*' -print 2>/dev/null || true
+            echo "CoronaBuilder-like paths:"
+            find /Applications -maxdepth 12 -iname '*CoronaBuilder*' -print 2>/dev/null || true
             exit 1
           fi
 
