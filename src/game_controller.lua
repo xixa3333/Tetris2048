@@ -64,7 +64,6 @@ function GameController:start()
     self.scoreRecorded = false
     self.active = true
     self.view:render(self.state)
-    if self.sound.playBackground then self.sound:playBackground() end
     if self.input.start then self.input:start(function(command) self:handle(command) end) end
 end
 
@@ -88,7 +87,6 @@ function GameController:returnHome()
     if self.input.stop then self.input:stop() end
     self:recordScoreOnce()
     self.active = false
-    if self.sound.stopBackground then self.sound:stopBackground() end
     if self.onHome then self.onHome() end
 end
 
@@ -164,14 +162,12 @@ end
 
 function GameController:pause()
     if self.input.stop then self.input:stop() end
-    if self.sound.stopBackground then self.sound:stopBackground() end
 end
 
 function GameController:resume()
     if not self.active then return true end
     self.view:setVisible(true)
     self.view:clearTransient()
-    if not self.state.isGameOver and self.sound.playBackground then self.sound:playBackground() end
     if self.view.recover then self.view:recover(self.state) else self.view:render(self.state) end
     if self.state.isGameOver and not self.state.isBusy then
         self.view:showGameOver(function() self:restart() end, function() self:returnHome() end)

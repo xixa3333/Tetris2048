@@ -1,6 +1,6 @@
 -- Persistent, UI-independent settings with one normalized data contract.
 local SettingsService={}; SettingsService.__index=SettingsService
-local DEFAULTS={backgroundVolume=15,effectVolume=40,seed=""}
+local DEFAULTS={backgroundVolume=15,effectVolume=40,seed="",backgroundTrack=""}
 
 local function clampPercent(value,fallback)
     local number=tonumber(value)
@@ -15,14 +15,16 @@ end
 function SettingsService.normalize(value)
     value=type(value)=="table" and value or {}
     return {backgroundVolume=clampPercent(value.backgroundVolume,DEFAULTS.backgroundVolume),
-        effectVolume=clampPercent(value.effectVolume,DEFAULTS.effectVolume),seed=normalizeSeed(value.seed)}
+        effectVolume=clampPercent(value.effectVolume,DEFAULTS.effectVolume),seed=normalizeSeed(value.seed),
+        backgroundTrack=tostring(value.backgroundTrack or DEFAULTS.backgroundTrack)}
 end
 function SettingsService.new(storage)
     local self=setmetatable({storage=assert(storage),listeners={}},SettingsService)
     self.value=SettingsService.normalize(storage:load()); return self
 end
 function SettingsService:get()
-    return {backgroundVolume=self.value.backgroundVolume,effectVolume=self.value.effectVolume,seed=self.value.seed}
+    return {backgroundVolume=self.value.backgroundVolume,effectVolume=self.value.effectVolume,
+        seed=self.value.seed,backgroundTrack=self.value.backgroundTrack}
 end
 function SettingsService:update(value)
     self.value=SettingsService.normalize(value); self.storage:save(self.value)

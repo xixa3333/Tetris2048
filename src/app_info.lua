@@ -1,6 +1,6 @@
 -- Static metadata shared by the controller, view and tests.
 return {
-    currentVersion = "2.4.0",
+    currentVersion = "2.4.1",
     displayName = "BlockMerge 2048",
     repositoryUrl = "https://github.com/xixa3333/Tetris2048",
     issuesUrl = "https://github.com/xixa3333/Tetris2048/issues",
@@ -8,6 +8,12 @@ return {
     latestReleaseUrl = "https://github.com/xixa3333/Tetris2048/releases/latest",
     latestReleaseApiUrl = "https://api.github.com/repos/xixa3333/Tetris2048/releases/latest",
     versions = {
+        {version = "2.4.1", bullets = {
+            "加入可擴展背景音樂選擇，設定頁會依 BackGround_XX_音樂名稱.mp3 自動列出曲目。",
+            "背景音樂改為 APP 開啟期間播放，進入背景程序時停止，回前景後恢復。",
+            "移除不明授權舊背景音樂，改用 CC0 音樂並新增 MUSIC_LICENSES.md 授權紀錄。",
+            "新增恐怖風格背景音樂 Spooky Dungeon，並保留輕鬆曲 Cozy Puzzle In-Game 1 作為預設 01。"
+        }},
         {version = "2.4.0", bullets = {
             "玩家可見名稱調整為 BlockMerge 2048，降低與既有品牌的混淆風險。",
             "彩色拼片改為中性命名與圓角寶石風格，移除舊的形狀字母資產命名。",

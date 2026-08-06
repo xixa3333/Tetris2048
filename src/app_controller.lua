@@ -3,10 +3,12 @@ local AppController={}; AppController.__index=AppController
 function AppController.new(d)
     assert(d.view and d.game and d.auth and d.profile and d.localBoard and d.globalBoard and d.migration and d.settings and d.update and d.platform and d.info)
     return setmetatable({view=d.view,game=d.game,auth=d.auth,profile=d.profile,
-        localBoard=d.localBoard,globalBoard=d.globalBoard,migration=d.migration,settings=d.settings,update=d.update,platform=d.platform,info=d.info,
+        localBoard=d.localBoard,globalBoard=d.globalBoard,migration=d.migration,settings=d.settings,update=d.update,platform=d.platform,info=d.info,sound=d.sound,
+        musicTracks=d.musicTracks or {},
         clock=d.clock or os.time,screen="boot",localPage=1,globalPage=1,infoPage=1},AppController)
 end
 function AppController:start()
+    if self.sound and self.sound.playBackground then self.sound:playBackground() end
     self:showCover()
     self.update:check(function(ok,result)
         if ok and result.updateAvailable then
@@ -34,7 +36,8 @@ function AppController:showModeSelect()
 end
 function AppController:showSettings()
     self.screen="settings"
-    self.view:showSettings(self.settings:get(),function(value)
+    local model=self.settings:get(); model.musicTracks=self.musicTracks
+    self.view:showSettings(model,function(value)
         self.settings:update(value); self:showCover()
     end,function() self:showCover() end)
 end
@@ -184,9 +187,11 @@ function AppController:onGameOver(score)
     self.globalBoard:add(score,function() end,mode)
 end
 function AppController:onSuspend()
+    if self.sound and self.sound.stopBackground then self.sound:stopBackground() end
     if self.screen=="game" then self.game:pause() end
 end
 function AppController:onResume()
+    if self.sound and self.sound.playBackground then self.sound:playBackground() end
     local ok=pcall(function()
         if self.screen=="game" then self.game:resume()
         elseif self.screen=="intro" then self:showIntro()

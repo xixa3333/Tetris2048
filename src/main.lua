@@ -20,9 +20,19 @@ local SettingsService=require("settings_service")
 local SeededRandom=require("seeded_random")
 local AudioService=require("audio_service")
 local UpdateService=require("update_service")
+local MusicLibrary=require("music_library")
+local musicManifest=require("music_manifest")
 
 math.randomseed(os.time())
-local audioFiles={eliminate=audio.loadStream("music/eliminate.mp3"),background=audio.loadStream("music/BackGround.mp3"),gameOver=audio.loadStream("music/GameOver.mp3")}
+local lfs=require("lfs")
+local musicTracks=MusicLibrary.fromSolar2D(lfs,system,"music")
+if #musicTracks==0 then musicTracks=MusicLibrary.fromFilenames(musicManifest) end
+local backgroundTracks={}
+for _,track in ipairs(musicTracks) do backgroundTracks[track.id]=audio.loadStream(track.file) end
+local defaultTrack=MusicLibrary.find(musicTracks)
+local audioFiles={eliminate=audio.loadStream("music/eliminate.mp3"),
+    background=defaultTrack and backgroundTracks[defaultTrack.id] or nil,
+    backgroundTracks=backgroundTracks,gameOver=audio.loadStream("music/GameOver.mp3")}
 local scheduler={}
 function scheduler:after(delay,callback) return timer.performWithDelay(delay,callback,1) end
 function scheduler:cancel(handle) if handle then pcall(timer.cancel,handle) end end
@@ -46,7 +56,8 @@ local profile=ProfileService.new(http,firebaseConfig,auth)
 local globalBoard=GlobalLeaderboard.new(http,firebaseConfig,auth)
 app=AppController.new({view=AppView.new(),game=game,auth=auth,profile=profile,
     localBoard=LocalLeaderboard.new(JsonStorage.new("leaderboard.json")),
-    globalBoard=globalBoard,migration=AccountMigration.new(auth,profile,globalBoard),settings=settings,update=update,platform=platform,info=appInfo})
+    globalBoard=globalBoard,migration=AccountMigration.new(auth,profile,globalBoard),settings=settings,update=update,platform=platform,info=appInfo,sound=sound,
+    musicTracks=musicTracks})
 app:start()
 app:restoreLogin()
 local lifecycle=LifecycleAdapter.new(Runtime,app)

@@ -8,8 +8,9 @@ T.test("Settings normalize, clamp and persist volume percentages and seed",funct
     local raw=storage({backgroundVolume=-5,effectVolume=140,seed="  repeat-me  "})
     local settings=SettingsService.new(raw); local value=settings:get()
     T.equal(value.backgroundVolume,0); T.equal(value.effectVolume,100); T.equal(value.seed,"repeat-me")
-    settings:update({backgroundVolume=33.6,effectVolume="20",seed=string.rep("x",80)})
+    settings:update({backgroundVolume=33.6,effectVolume="20",seed=string.rep("x",80),backgroundTrack="BackGround_02_Test.mp3"})
     T.equal(raw.value.backgroundVolume,34); T.equal(raw.value.effectVolume,20); T.equal(#raw.value.seed,64)
+    T.equal(raw.value.backgroundTrack,"BackGround_02_Test.mp3")
 end)
 T.test("Settings reject malformed local data and notify subscribers",function()
     local raw=storage("corrupt"); local settings=SettingsService.new(raw); local observed

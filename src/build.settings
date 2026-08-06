@@ -4,14 +4,14 @@ settings = {
         supported = { "portrait", "portraitUpsideDown" },
     },
     android = {
-        versionCode = "17",
+        versionCode = 18,
         usesPermissions = {
             "android.permission.INTERNET",
         },
     },
     iphone = {
         plist = {
-            CFBundleShortVersionString = "2.4.0",
+            CFBundleShortVersionString = "2.4.1",
             UIStatusBarHidden = true,
             UILaunchStoryboardName = "LaunchScreen",
         },

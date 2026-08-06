@@ -68,22 +68,26 @@ local function build(signedIn)
     function profile:deleteCurrent(callback) callback(true) end
     local migration={}
     function migration:migrate(account,password,callback) auth.user={uid="new-u",account=account,nickname="Player",isLegacy=false}; callback(true,"migrated") end
-    local settings={value={backgroundVolume=15,effectVolume=40,seed=""}}
-    function settings:get() return {backgroundVolume=self.value.backgroundVolume,effectVolume=self.value.effectVolume,seed=self.value.seed} end
+    local settings={value={backgroundVolume=15,effectVolume=40,seed="",backgroundTrack=""}}
+    function settings:get() return {backgroundVolume=self.value.backgroundVolume,effectVolume=self.value.effectVolume,seed=self.value.seed,backgroundTrack=self.value.backgroundTrack} end
     function settings:update(value) self.value=value; return value end
     local update={result={updateAvailable=false}}
     function update:check(callback) callback(true,self.result) end
     local platform={exits=0,urls={}}
     function platform:exit() self.exits=self.exits+1 end
     function platform:openURL(url) self.urls[#self.urls+1]=url; return true end
+    local sound={plays=0,stops=0}
+    function sound:playBackground() self.plays=self.plays+1 end
+    function sound:stopBackground() self.stops=self.stops+1 end
 
     return AppController.new({view=view,game=game,auth=auth,profile=profile,localBoard=localBoard,
-        globalBoard=global,migration=migration,settings=settings,update=update,platform=platform,info=AppInfo,clock=function() return 1 end}),
-        view,game,localBoard,global,platform,update
+        globalBoard=global,migration=migration,settings=settings,update=update,platform=platform,info=AppInfo,sound=sound,
+        musicTracks={{id="BackGround_01_A.mp3",name="A"},{id="BackGround_02_B.mp3",name="B"}},clock=function() return 1 end}),
+        view,game,localBoard,global,platform,update,sound
 end
 
 T.test("Cover routes to mode selection, game and intro",function()
-    local app,view,game=build(false); app:start(); T.equal(view.screen,"cover")
+    local app,view,game,_,_,_,_,sound=build(false); app:start(); T.equal(view.screen,"cover"); T.equal(sound.plays,1)
     view.actions.intro(); T.equal(view.screen,"intro"); view.back(); T.equal(view.screen,"cover")
     view.actions.start(); T.equal(view.screen,"modeSelect")
     view.startMode(1); T.equal(game.starts,1); T.equal(game.mode,1); T.equal(game.view.visible,true)
@@ -98,6 +102,7 @@ T.test("Cover settings route persists volume and seed then returns to cover",fun
     local app,view=build(false); app:start(); view.actions.settings()
     T.equal(view.screen,"settings"); view.saveSettings({backgroundVolume=55,effectVolume=70,seed="friends-01"})
     T.equal(view.screen,"cover"); T.equal(app.settings:get().backgroundVolume,55); T.equal(app.settings:get().seed,"friends-01")
+    T.equal(#view.settings.musicTracks,2)
 end)
 
 T.test("Startup update prompt opens only the trusted latest release link",function()
@@ -121,16 +126,16 @@ end)
 
 T.test("Cover APP information routes through versions and safe GitHub links",function()
     local app,view,_,_,_,platform=build(false); app:start()
-    T.equal(view.actions.version,"2.4.0"); T.equal(view.actions.displayName,"BlockMerge 2048"); view.actions.info()
-    T.equal(app.screen,"appInfo"); T.equal(view.model.items[1].version,"2.4.0")
+    T.equal(view.actions.version,"2.4.1"); T.equal(view.actions.displayName,"BlockMerge 2048"); view.actions.info()
+    T.equal(app.screen,"appInfo"); T.equal(view.model.items[1].version,"2.4.1")
     view.actions.repository(); view.actions.issues(); view.actions.author()
     T.equal(platform.urls[1],"https://github.com/xixa3333/Tetris2048")
     T.equal(platform.urls[2],"https://github.com/xixa3333/Tetris2048/issues")
     T.equal(platform.urls[3],"https://github.com/xixa3333")
     T.equal(app:openExternal("https://example.com/phishing"),false)
-    view.actions.next(); T.equal(view.model.items[1].version,"2.3.9")
-    app:onResume(); T.equal(view.screen,"appInfo"); T.equal(view.model.items[1].version,"2.3.9")
-    view.actions.previous(); T.equal(view.model.items[1].version,"2.4.0")
+    view.actions.next(); T.equal(view.model.items[1].version,"2.4.0")
+    app:onResume(); T.equal(view.screen,"appInfo"); T.equal(view.model.items[1].version,"2.4.0")
+    view.actions.previous(); T.equal(view.model.items[1].version,"2.4.1")
 end)
 
 T.test("Auth screen exposes forgot password and signed-in account can change password",function()
@@ -142,8 +147,8 @@ T.test("Auth screen exposes forgot password and signed-in account can change pas
 end)
 
 T.test("App resume restores the game and falls back to cover on recovery failure",function()
-    local app,view,game=build(false); app:startGame(); app:onSuspend(); app:onResume()
-    T.equal(game.pauses,1); T.equal(game.resumes,1)
+    local app,view,game,_,_,_,_,sound=build(false); app:startGame(); app:onSuspend(); app:onResume()
+    T.equal(game.pauses,1); T.equal(game.resumes,1); T.equal(sound.stops,1); T.equal(sound.plays,1)
     game.resume=function() error("GPU lost") end; app:onResume(); T.equal(app.screen,"cover"); T.equal(view.screen,"cover")
 end)
 

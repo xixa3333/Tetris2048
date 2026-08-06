@@ -174,4 +174,35 @@ function AppView:showLoading(value) local g=self:_screen("請稍候"); text(g,va
 function AppView:showError(value,back)
     local g=self:_screen("發生錯誤"); text(g,value,250,330,20,{1,0.65,0.35}); button(g,"回到主畫面",250,500,back)
 end
+function AppView:showSettings(model,save,back)
+    local g=self:_screen("設定")
+    local tracks=model.musicTracks or {}
+    local selectedIndex=1
+    for index,track in ipairs(tracks) do if track.id==model.backgroundTrack then selectedIndex=index end end
+    local function selectedTrack() return tracks[selectedIndex] or {id="",name="預設音樂"} end
+    if #tracks>0 and (not model.backgroundTrack or model.backgroundTrack=="") then model.backgroundTrack=selectedTrack().id end
+    local musicLabel=text(g,"背景音樂："..selectedTrack().name,250,145,20,ACCENT)
+    local function selectMusic(delta)
+        if #tracks==0 then return end
+        selectedIndex=((selectedIndex-1+delta)%#tracks)+1
+        model.backgroundTrack=selectedTrack().id
+        musicLabel.text="背景音樂："..selectedTrack().name
+    end
+    button(g,"上一首",135,205,function() selectMusic(-1) end,150,46)
+    button(g,"下一首",365,205,function() selectMusic(1) end,150,46)
+    local backgroundLabel=text(g,"背景音量："..model.backgroundVolume.."%",250,270,21,BRIGHT)
+    local background=widget.newSlider({x=250,y=320,width=360,value=model.backgroundVolume,
+        listener=function(event) model.backgroundVolume=math.floor(event.value+0.5); backgroundLabel.text="背景音量："..model.backgroundVolume.."%" end})
+    g:insert(background)
+    local effectLabel=text(g,"消除 / Game Over 音量："..model.effectVolume.."%",250,395,21,BRIGHT)
+    local effect=widget.newSlider({x=250,y=445,width=360,value=model.effectVolume,
+        listener=function(event) model.effectVolume=math.floor(event.value+0.5); effectLabel.text="消除 / Game Over 音量："..model.effectVolume.."%" end})
+    g:insert(effect)
+    text(g,"關卡種子",250,520,23,ACCENT)
+    text(g,"相同種子會產生相同的方塊順序，\n適合和朋友挑戰同一局；留空就是一般隨機。",250,565,16,BRIGHT)
+    local seed=native.newTextField(250,630,360,50); seed.placeholder="種子（可留空）"; seed.text=model.seed or ""
+    self.fields={seed}
+    button(g,"儲存設定",250,720,function() model.seed=seed.text; save(model) end)
+    button(g,"取消",250,790,back,160,48)
+end
 return AppView

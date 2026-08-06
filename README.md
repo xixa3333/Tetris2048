@@ -1,6 +1,6 @@
 # BlockMerge 2048
 
-BlockMerge 2048 是一款以「滑動拼片、整線消除、分數挑戰」為核心的原創益智遊戲。玩家不是控制掉落物，而是在每回合把場上的拼片往一個方向推動，完成消除後再放入下一個拼片。遊戲保留黑色背景與明亮色塊的簡潔風格，並在 v2.4.0 起改用圓角寶石拼片與中性命名，降低與既有品牌或經典方塊視覺語彙混淆的風險。
+BlockMerge 2048 是一款以「滑動拼片、整線消除、分數挑戰」為核心的原創益智遊戲。玩家不是控制掉落物，而是在每回合把場上的拼片往一個方向推動，完成消除後再放入下一個拼片。遊戲保留黑色背景與明亮色塊的簡潔風格，並在 v2.4.1 加入可擴展背景音樂選擇，讓玩家能依心情選擇輕鬆或恐怖風格音樂。
 
 [![GitHub Downloads](https://img.shields.io/github/downloads/xixa3333/Tetris2048/total?style=for-the-badge&label=%E4%B8%8B%E8%BC%89%E6%AC%A1%E6%95%B8&color=brightgreen)](https://github.com/xixa3333/Tetris2048/releases/latest)
 
