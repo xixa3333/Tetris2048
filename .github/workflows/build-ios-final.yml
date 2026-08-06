@@ -4,13 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "GitHub Release tag, for example v2.4.1"
+        description: "GitHub Release tag, for example v2.4.2"
         required: true
-        default: "v2.4.1"
+        default: "v2.4.2"
       app_version:
-        description: "App version, for example 2.4.1"
+        description: "App version, for example 2.4.2"
         required: true
-        default: "2.4.1"
+        default: "2.4.2"
       upload_release:
         description: "Upload the IPA to the GitHub Release"
         required: true
@@ -59,11 +59,12 @@ jobs:
       APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
       APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
       APP_STORE_CONNECT_API_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
+      MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+      MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+
       FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
       FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
       FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
-      MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-      MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
 
     steps:
       - name: Checkout app source
@@ -84,11 +85,11 @@ jobs:
             APP_STORE_CONNECT_API_KEY_ID
             APP_STORE_CONNECT_API_ISSUER_ID
             APP_STORE_CONNECT_API_KEY_BASE64
+            MATCH_PASSWORD
+            MATCH_GIT_BASIC_AUTHORIZATION
             FIREBASE_PROJECT_ID
             FIREBASE_API_KEY
             FIREBASE_APP_ID
-            MATCH_PASSWORD
-            MATCH_GIT_BASIC_AUTHORIZATION
           )
 
           for name in "${required_values[@]}"; do
@@ -99,7 +100,7 @@ jobs:
           done
 
           if [[ ! "${{ inputs.app_version }}" =~ ^[0-9]+(\.[0-9]+){1,2}$ ]]; then
-            echo "::error::app_version must look like 2.4 or 2.4.1."
+            echo "::error::app_version must look like 2.4 or 2.4.2."
             exit 1
           fi
 
@@ -130,35 +131,6 @@ jobs:
 
           echo "Signing storage: $match_repo @ $MATCH_GIT_BRANCH"
           echo "App version/build: ${{ inputs.app_version }} ($IOS_BUILD_NUMBER)"
-
-      - name: Generate Firebase client config
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          cat > src/firebase_config.local.lua <<'LUA'
-          return {
-              projectId = "__FIREBASE_PROJECT_ID__",
-              apiKey = "__FIREBASE_API_KEY__",
-              appId = "__FIREBASE_APP_ID__"
-          }
-          LUA
-
-          python3 - <<'PY'
-          from pathlib import Path
-          import os
-
-          path = Path("src/firebase_config.local.lua")
-          text = path.read_text(encoding="utf-8")
-          replacements = {
-              "__FIREBASE_PROJECT_ID__": os.environ["FIREBASE_PROJECT_ID"],
-              "__FIREBASE_API_KEY__": os.environ["FIREBASE_API_KEY"],
-              "__FIREBASE_APP_ID__": os.environ["FIREBASE_APP_ID"],
-          }
-          for key, value in replacements.items():
-              text = text.replace(key, value.replace("\\", "\\\\").replace('"', '\\"'))
-          path.write_text(text, encoding="utf-8")
-          PY
 
       - name: Validate match repository access
         shell: bash
@@ -435,6 +407,57 @@ jobs:
 
           test -f "$IOS_PROFILE_PATH"
 
+      - name: Create Firebase configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # The app reads this generated file at runtime. It is created only on
+          # the CI runner and is not committed to the repository.
+          python3 <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          required = (
+              "FIREBASE_PROJECT_ID",
+              "FIREBASE_API_KEY",
+              "FIREBASE_APP_ID",
+          )
+
+          missing = [name for name in required if not os.environ.get(name, "").strip()]
+          if missing:
+              raise SystemExit(
+                  "Missing Firebase GitHub Secrets: " + ", ".join(missing)
+              )
+
+          output = Path("src/firebase_config.local.lua")
+          output.parent.mkdir(parents=True, exist_ok=True)
+
+          project_id = os.environ["FIREBASE_PROJECT_ID"].strip()
+          api_key = os.environ["FIREBASE_API_KEY"].strip()
+          app_id = os.environ["FIREBASE_APP_ID"].strip()
+
+          # json.dumps produces safely quoted strings that are also valid Lua
+          # string literals, without exposing secret values in the Actions log.
+          content = (
+              "-- Generated temporarily by GitHub Actions. Do not commit this file.\n"
+              "return {\n"
+              f"  projectId = {json.dumps(project_id)},\n"
+              f"  apiKey = {json.dumps(api_key)},\n"
+              f"  appId = {json.dumps(app_id)},\n"
+              "}\n"
+          )
+
+          output.write_text(content, encoding="utf-8")
+          print(f"Created {output} with Firebase project, API key, and app ID fields.")
+          PY
+
+          test -s src/firebase_config.local.lua
+          grep -q 'projectId' src/firebase_config.local.lua
+          grep -q 'apiKey' src/firebase_config.local.lua
+          grep -q 'appId' src/firebase_config.local.lua
+
       - name: Build IPA with Solar2D
         env:
           APP_VERSION: ${{ inputs.app_version }}
@@ -595,4 +618,5 @@ jobs:
           set +e
           rm -f "${ASC_KEY_PATH:-}"
           rm -f "$HOME/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8"
+          rm -f "src/firebase_config.local.lua"
           rm -rf "$RUNNER_TEMP/fastlane-signing" "$RUNNER_TEMP/ipa-validation" "$RUNNER_TEMP/solar2d-project"
