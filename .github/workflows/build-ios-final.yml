@@ -133,9 +133,16 @@ jobs:
 
           AUTH_HEADER="Authorization: Basic $MATCH_GIT_BASIC_AUTHORIZATION"
 
+          echo "Testing access to MATCH_GIT_URL..."
+          echo "Repository: $MATCH_GIT_URL"
+
+          # Keep Git's real error visible. The previous version redirected both
+          # stdout and stderr to /dev/null, so 401/403/not-found errors all looked
+          # identical and were impossible to diagnose.
           if ! git -c http.extraheader="$AUTH_HEADER" \
-            ls-remote "$MATCH_GIT_URL" >/dev/null 2>&1; then
-            echo "::error::MATCH_GIT_BASIC_AUTHORIZATION cannot read MATCH_GIT_URL. Check the token, accepted repository invitation, and repo scope."
+            ls-remote "$MATCH_GIT_URL"; then
+            echo "::error::Cannot access MATCH_GIT_URL with MATCH_GIT_BASIC_AUTHORIZATION."
+            echo "::error::Confirm the Base64 source is 'iamsuck5704:<PAT>', the PAT can access this repository, and the repository invitation has been accepted."
             exit 1
           fi
 
