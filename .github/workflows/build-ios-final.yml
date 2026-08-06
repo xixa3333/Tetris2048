@@ -1,0 +1,415 @@
+name: Build iOS
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "GitHub Release tag, for example v2.4.1"
+        required: true
+        default: "v2.4.1"
+      app_version:
+        description: "App version, for example 2.4.1"
+        required: true
+        default: "2.4.1"
+      upload_release:
+        description: "Upload the IPA to the GitHub Release"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "true"
+          - "false"
+      upload_testflight:
+        description: "Upload the IPA to TestFlight"
+        required: true
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
+      bootstrap_signing:
+        description: "Create signing certificate/profile on the first run only"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "true"
+          - "false"
+
+concurrency:
+  group: ios-build-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  build-ios:
+    # Apple requires uploads to be built with Xcode 26 or newer.
+    runs-on: macos-26
+    timeout-minutes: 60
+
+    permissions:
+      contents: write
+
+    env:
+      IOS_BUNDLE_ID: ${{ vars.IOS_BUNDLE_ID }}
+      MATCH_GIT_URL: ${{ vars.MATCH_GIT_URL }}
+      MATCH_GIT_BRANCH: ${{ vars.MATCH_GIT_BRANCH || 'match-signing' }}
+
+      APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+      APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+      APP_STORE_CONNECT_API_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
+      MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+      MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+
+    steps:
+      - name: Checkout app source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Validate configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          required_values=(
+            IOS_BUNDLE_ID
+            MATCH_GIT_URL
+            MATCH_GIT_BRANCH
+            APP_STORE_CONNECT_API_KEY_ID
+            APP_STORE_CONNECT_API_ISSUER_ID
+            APP_STORE_CONNECT_API_KEY_BASE64
+            MATCH_PASSWORD
+            MATCH_GIT_BASIC_AUTHORIZATION
+          )
+
+          for name in "${required_values[@]}"; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "::error::$name is empty. Check repository Variables/Secrets."
+              exit 1
+            fi
+          done
+
+          if [[ ! "${{ inputs.app_version }}" =~ ^[0-9]+(\.[0-9]+){1,2}$ ]]; then
+            echo "::error::app_version must look like 2.4 or 2.4.1."
+            exit 1
+          fi
+
+          normalize_repo() {
+            printf '%s' "$1" \
+              | sed -E 's#^https://github.com/##; s#^git@github.com:##; s#\.git$##' \
+              | tr '[:upper:]' '[:lower:]'
+          }
+
+          match_repo="$(normalize_repo "$MATCH_GIT_URL")"
+          current_repo="$(printf '%s' "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')"
+
+          if [[ "$match_repo" == "$current_repo" ]] \
+             && [[ "$MATCH_GIT_BRANCH" == "main" || "$MATCH_GIT_BRANCH" == "master" ]]; then
+            echo "::error::MATCH_GIT_URL points to this app repo, so MATCH_GIT_BRANCH must be a separate branch such as match-signing, not main/master."
+            exit 1
+          fi
+
+          echo "Signing storage: $match_repo @ $MATCH_GIT_BRANCH"
+
+      - name: Select supported Xcode
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Solar2D 2026.3730 added Xcode 26.4 support. Prefer that version
+          # when the runner image provides it, then fall back to the runner default.
+          if [[ -d "/Applications/Xcode_26.4.1.app/Contents/Developer" ]]; then
+            sudo xcode-select -s "/Applications/Xcode_26.4.1.app/Contents/Developer"
+          fi
+
+          xcodebuild -version
+          xcode_major="$(xcodebuild -version | awk '/Xcode/{split($2,v,"."); print v[1]}')"
+
+          if [[ -z "$xcode_major" || "$xcode_major" -lt 26 ]]; then
+            echo "::error::Xcode 26 or newer is required for App Store Connect uploads."
+            exit 1
+          fi
+
+      - name: Install Solar2D
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ ! -d "/Applications/Corona" ]]; then
+            brew install --cask solar2d
+          fi
+
+          candidates=(
+            "/Applications/Corona/Native/Corona/mac/bin/CoronaBuilder"
+            "/Applications/Corona/Native/Corona/mac/bin/CoronaBuilder.app/Contents/MacOS/CoronaBuilder"
+          )
+
+          CORONA_BUILDER=""
+          for candidate in "${candidates[@]}"; do
+            if [[ -x "$candidate" ]]; then
+              CORONA_BUILDER="$candidate"
+              break
+            fi
+          done
+
+          if [[ -z "$CORONA_BUILDER" ]]; then
+            echo "::error::CoronaBuilder was not found after installing Solar2D."
+            find /Applications/Corona -name 'CoronaBuilder*' -print 2>/dev/null || true
+            exit 1
+          fi
+
+          echo "CORONA_BUILDER=$CORONA_BUILDER" >> "$GITHUB_ENV"
+          echo "Using CoronaBuilder: $CORONA_BUILDER"
+
+      - name: Ensure fastlane is available
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v fastlane >/dev/null 2>&1; then
+            gem install fastlane --no-document
+          fi
+          fastlane --version
+
+      - name: Prepare App Store Connect API key
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ASC_KEY_PATH="$RUNNER_TEMP/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8"
+          printf '%s' "$APP_STORE_CONNECT_API_KEY_BASE64" | base64 -D > "$ASC_KEY_PATH"
+          chmod 600 "$ASC_KEY_PATH"
+
+          if [[ ! -s "$ASC_KEY_PATH" ]] || ! grep -q "BEGIN PRIVATE KEY" "$ASC_KEY_PATH"; then
+            echo "::error::APP_STORE_CONNECT_API_KEY_BASE64 did not decode to a valid .p8 private key."
+            exit 1
+          fi
+
+          echo "ASC_KEY_PATH=$ASC_KEY_PATH" >> "$GITHUB_ENV"
+
+      - name: Sync Apple signing with fastlane match
+        shell: bash
+        env:
+          MATCH_READONLY: ${{ inputs.bootstrap_signing == 'true' && 'false' || 'true' }}
+        run: |
+          set -euo pipefail
+
+          FASTLANE_DIR="$RUNNER_TEMP/fastlane-signing"
+          mkdir -p "$FASTLANE_DIR"
+
+          cat > "$FASTLANE_DIR/Fastfile" <<'RUBY'
+          default_platform(:ios)
+
+          platform :ios do
+            lane :sync_signing do
+              setup_ci(provider: "github")
+
+              api_key = app_store_connect_api_key(
+                key_id: ENV.fetch("APP_STORE_CONNECT_API_KEY_ID"),
+                issuer_id: ENV.fetch("APP_STORE_CONNECT_API_ISSUER_ID"),
+                key_filepath: ENV.fetch("ASC_KEY_PATH"),
+                in_house: false
+              )
+
+              match(
+                type: "appstore",
+                app_identifier: ENV.fetch("IOS_BUNDLE_ID"),
+                git_url: ENV.fetch("MATCH_GIT_URL"),
+                git_branch: ENV.fetch("MATCH_GIT_BRANCH"),
+                git_basic_authorization: ENV.fetch("MATCH_GIT_BASIC_AUTHORIZATION"),
+                readonly: ENV.fetch("MATCH_READONLY", "true") == "true",
+                api_key: api_key,
+                platform: "ios",
+                skip_docs: true
+              )
+            end
+          end
+          RUBY
+
+          (
+            cd "$FASTLANE_DIR"
+            fastlane ios sync_signing
+          )
+
+      - name: Locate matching App Store provisioning profile
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          PROFILE_PATH=""
+          PROFILE_DETAILS=""
+
+          search_dirs=(
+            "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
+            "$HOME/Library/MobileDevice/Provisioning Profiles"
+          )
+
+          while IFS= read -r -d '' candidate; do
+            profile_plist="$(mktemp "$RUNNER_TEMP/profile.XXXXXX.plist")"
+
+            if ! security cms -D -i "$candidate" > "$profile_plist" 2>/dev/null; then
+              rm -f "$profile_plist"
+              continue
+            fi
+
+            app_identifier=$(
+              /usr/libexec/PlistBuddy \
+                -c 'Print :Entitlements:application-identifier' \
+                "$profile_plist" 2>/dev/null || true
+            )
+            get_task_allow=$(
+              /usr/libexec/PlistBuddy \
+                -c 'Print :Entitlements:get-task-allow' \
+                "$profile_plist" 2>/dev/null || true
+            )
+            expiration=$(
+              /usr/libexec/PlistBuddy \
+                -c 'Print :ExpirationDate' \
+                "$profile_plist" 2>/dev/null || true
+            )
+
+            if [[ "$app_identifier" == *."$IOS_BUNDLE_ID" ]] \
+               && [[ "$get_task_allow" == "false" ]]; then
+              PROFILE_PATH="$candidate"
+              PROFILE_DETAILS="application-identifier=$app_identifier; expires=$expiration"
+              rm -f "$profile_plist"
+              break
+            fi
+
+            rm -f "$profile_plist"
+          done < <(
+            for directory in "${search_dirs[@]}"; do
+              if [[ -d "$directory" ]]; then
+                find "$directory" -type f -name '*.mobileprovision' -print0
+              fi
+            done
+          )
+
+          if [[ -z "$PROFILE_PATH" ]]; then
+            echo "::error::No App Store provisioning profile matching $IOS_BUNDLE_ID was found."
+            for directory in "${search_dirs[@]}"; do
+              find "$directory" -type f -name '*.mobileprovision' -print 2>/dev/null || true
+            done
+            exit 1
+          fi
+
+          echo "Using provisioning profile: $PROFILE_PATH"
+          echo "$PROFILE_DETAILS"
+          echo "IOS_PROFILE_PATH=$PROFILE_PATH" >> "$GITHUB_ENV"
+
+      - name: Verify signing identity
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          security find-identity -v -p codesigning
+          if ! security find-identity -v -p codesigning \
+            | grep -Eq 'Apple Distribution|iPhone Distribution'; then
+            echo "::error::No Apple Distribution signing identity is available in the CI keychain."
+            exit 1
+          fi
+
+          test -f "$IOS_PROFILE_PATH"
+
+      - name: Build IPA with Solar2D
+        env:
+          APP_VERSION: ${{ inputs.app_version }}
+          IOS_APP_NAME: BlockMerge2048
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/ci/build-ios.sh
+
+      - name: Validate generated IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          IPA_PATH="$(find build/ios -maxdepth 1 -name '*.ipa' -print -quit)"
+          if [[ -z "$IPA_PATH" ]]; then
+            echo "::error::Solar2D did not generate an IPA."
+            exit 1
+          fi
+
+          VALIDATION_DIR="$RUNNER_TEMP/ipa-validation"
+          rm -rf "$VALIDATION_DIR"
+          mkdir -p "$VALIDATION_DIR"
+          ditto -x -k "$IPA_PATH" "$VALIDATION_DIR"
+
+          APP_PATH="$(find "$VALIDATION_DIR/Payload" -maxdepth 1 -name '*.app' -print -quit)"
+          if [[ -z "$APP_PATH" ]]; then
+            echo "::error::The IPA does not contain a Payload/*.app bundle."
+            exit 1
+          fi
+
+          built_bundle_id=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP_PATH/Info.plist")
+          if [[ "$built_bundle_id" != "$IOS_BUNDLE_ID" ]]; then
+            echo "::error::Built Bundle ID '$built_bundle_id' does not match IOS_BUNDLE_ID '$IOS_BUNDLE_ID'."
+            exit 1
+          fi
+
+          codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+
+          if [[ ! -f "$APP_PATH/embedded.mobileprovision" ]]; then
+            echo "::error::The built app has no embedded.mobileprovision."
+            exit 1
+          fi
+
+          echo "IPA validated: $IPA_PATH"
+          echo "Built Bundle ID: $built_bundle_id"
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BlockMerge2048-iOS-${{ inputs.app_version }}
+          path: build/ios/*
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload IPA to GitHub Release
+        if: ${{ inputs.upload_release == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          IPA_PATH="$(find build/ios -maxdepth 1 -name '*.ipa' -print -quit)"
+          test -n "$IPA_PATH"
+
+          if ! gh release view "${{ inputs.release_tag }}" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "${{ inputs.release_tag }}" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "${{ inputs.release_tag }}" \
+              --notes "iOS build ${{ inputs.app_version }}"
+          fi
+
+          gh release upload "${{ inputs.release_tag }}" \
+            "$IPA_PATH" \
+            --clobber \
+            --repo "$GITHUB_REPOSITORY"
+
+      - name: Upload IPA to TestFlight
+        if: ${{ inputs.upload_testflight == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          IPA_PATH="$(find build/ios -maxdepth 1 -name '*.ipa' -print -quit)"
+          test -n "$IPA_PATH"
+
+          mkdir -p "$HOME/.appstoreconnect/private_keys"
+          cp "$ASC_KEY_PATH" \
+            "$HOME/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8"
+
+          xcrun altool --validate-app \
+            --type ios \
+            --file "$IPA_PATH" \
+            --apiKey "$APP_STORE_CONNECT_API_KEY_ID" \
+            --apiIssuer "$APP_STORE_CONNECT_API_ISSUER_ID"
+
+          xcrun altool --upload-app \
+            --type ios \
+            --file "$IPA_PATH" \
+            --apiKey "$APP_STORE_CONNECT_API_KEY_ID" \
+            --apiIssuer "$APP_STORE_CONNECT_API_ISSUER_ID"
