@@ -53,6 +53,7 @@ jobs:
       IOS_BUNDLE_ID: ${{ vars.IOS_BUNDLE_ID }}
       MATCH_GIT_URL: ${{ vars.MATCH_GIT_URL }}
       MATCH_GIT_BRANCH: ${{ vars.MATCH_GIT_BRANCH || 'match-signing' }}
+      IOS_BUILD_NUMBER: ${{ github.run_number }}.${{ github.run_attempt }}
 
       APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
       APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
@@ -95,6 +96,16 @@ jobs:
             exit 1
           fi
 
+          if [[ ! "$IOS_BUILD_NUMBER" =~ ^[0-9]+(\.[0-9]+){0,2}$ ]]; then
+            echo "::error::IOS_BUILD_NUMBER must contain only numbers and up to two dots."
+            exit 1
+          fi
+
+          if [[ "$MATCH_GIT_URL" != https://* ]]; then
+            echo "::error::MATCH_GIT_URL must be an HTTPS URL because MATCH_GIT_BASIC_AUTHORIZATION is HTTP Basic authentication."
+            exit 1
+          fi
+
           normalize_repo() {
             printf '%s' "$1" \
               | sed -E 's#^https://github.com/##; s#^git@github.com:##; s#\.git$##' \
@@ -111,6 +122,39 @@ jobs:
           fi
 
           echo "Signing storage: $match_repo @ $MATCH_GIT_BRANCH"
+          echo "App version/build: ${{ inputs.app_version }} ($IOS_BUILD_NUMBER)"
+
+      - name: Validate match repository access
+        shell: bash
+        env:
+          BOOTSTRAP_SIGNING: ${{ inputs.bootstrap_signing }}
+        run: |
+          set -euo pipefail
+
+          AUTH_HEADER="Authorization: Basic $MATCH_GIT_BASIC_AUTHORIZATION"
+
+          if ! git -c http.extraheader="$AUTH_HEADER" \
+            ls-remote "$MATCH_GIT_URL" >/dev/null 2>&1; then
+            echo "::error::MATCH_GIT_BASIC_AUTHORIZATION cannot read MATCH_GIT_URL. Check the token, accepted repository invitation, and repo scope."
+            exit 1
+          fi
+
+          branch_ref=$(
+            git -c http.extraheader="$AUTH_HEADER" \
+              ls-remote --heads "$MATCH_GIT_URL" "refs/heads/$MATCH_GIT_BRANCH" \
+              || true
+          )
+
+          if [[ "$BOOTSTRAP_SIGNING" != "true" && -z "$branch_ref" ]]; then
+            echo "::error::The signing branch '$MATCH_GIT_BRANCH' does not exist yet. Run once with bootstrap_signing=true."
+            exit 1
+          fi
+
+          if [[ -z "$branch_ref" ]]; then
+            echo "Signing branch does not exist yet; match will create it as an orphan branch."
+          else
+            echo "Signing branch exists: $MATCH_GIT_BRANCH"
+          fi
 
       - name: Select supported Xcode
         shell: bash
@@ -195,7 +239,7 @@ jobs:
       - name: Sync Apple signing with fastlane match
         shell: bash
         env:
-          MATCH_READONLY: ${{ inputs.bootstrap_signing == 'true' && 'false' || 'true' }}
+          BOOTSTRAP_SIGNING: ${{ inputs.bootstrap_signing }}
         run: |
           set -euo pipefail
 
@@ -208,7 +252,13 @@ jobs:
 
           platform :ios do
             lane :sync_signing do
-              setup_ci(provider: "github")
+              bootstrap_signing = ENV.fetch("BOOTSTRAP_SIGNING", "false") == "true"
+
+              # setup_ci auto-detects GitHub Actions when no provider is supplied.
+              # It creates a temporary keychain and defaults match to readonly,
+              # so restore the intended first-run mode immediately afterwards.
+              setup_ci
+              ENV["MATCH_READONLY"] = bootstrap_signing ? "false" : "true"
 
               api_key = app_store_connect_api_key(
                 key_id: ENV.fetch("APP_STORE_CONNECT_API_KEY_ID"),
@@ -223,7 +273,11 @@ jobs:
                 git_url: ENV.fetch("MATCH_GIT_URL"),
                 git_branch: ENV.fetch("MATCH_GIT_BRANCH"),
                 git_basic_authorization: ENV.fetch("MATCH_GIT_BASIC_AUTHORIZATION"),
-                readonly: ENV.fetch("MATCH_READONLY", "true") == "true",
+                git_full_name: "github-actions[bot]",
+                git_user_email: "41898282+github-actions[bot]@users.noreply.github.com",
+                clone_branch_directly: !bootstrap_signing,
+                shallow_clone: !bootstrap_signing,
+                readonly: !bootstrap_signing,
                 api_key: api_key,
                 platform: "ios",
                 skip_docs: true
@@ -276,11 +330,29 @@ jobs:
                 -c 'Print :ExpirationDate' \
                 "$profile_plist" 2>/dev/null || true
             )
+            beta_reports_active=$(
+              /usr/libexec/PlistBuddy \
+                -c 'Print :Entitlements:beta-reports-active' \
+                "$profile_plist" 2>/dev/null || true
+            )
+            provisioned_devices=$(
+              /usr/libexec/PlistBuddy \
+                -c 'Print :ProvisionedDevices' \
+                "$profile_plist" 2>/dev/null || true
+            )
+            provisions_all_devices=$(
+              /usr/libexec/PlistBuddy \
+                -c 'Print :ProvisionsAllDevices' \
+                "$profile_plist" 2>/dev/null || true
+            )
 
             if [[ "$app_identifier" == *."$IOS_BUNDLE_ID" ]] \
-               && [[ "$get_task_allow" == "false" ]]; then
+               && [[ "$get_task_allow" == "false" ]] \
+               && [[ "$beta_reports_active" == "true" ]] \
+               && [[ -z "$provisioned_devices" ]] \
+               && [[ "$provisions_all_devices" != "true" ]]; then
               PROFILE_PATH="$candidate"
-              PROFILE_DETAILS="application-identifier=$app_identifier; expires=$expiration"
+              PROFILE_DETAILS="application-identifier=$app_identifier; beta-reports-active=$beta_reports_active; expires=$expiration"
               rm -f "$profile_plist"
               break
             fi
@@ -352,8 +424,21 @@ jobs:
           fi
 
           built_bundle_id=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP_PATH/Info.plist")
+          built_version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP_PATH/Info.plist")
+          built_number=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP_PATH/Info.plist")
+
           if [[ "$built_bundle_id" != "$IOS_BUNDLE_ID" ]]; then
             echo "::error::Built Bundle ID '$built_bundle_id' does not match IOS_BUNDLE_ID '$IOS_BUNDLE_ID'."
+            exit 1
+          fi
+
+          if [[ "$built_version" != "${{ inputs.app_version }}" ]]; then
+            echo "::error::Built version '$built_version' does not match requested version '${{ inputs.app_version }}'."
+            exit 1
+          fi
+
+          if [[ "$built_number" != "$IOS_BUILD_NUMBER" ]]; then
+            echo "::error::Built number '$built_number' does not match CI build number '$IOS_BUILD_NUMBER'. Replace scripts/ci/build-ios.sh with the companion fixed version."
             exit 1
           fi
 
@@ -364,13 +449,24 @@ jobs:
             exit 1
           fi
 
+          EMBEDDED_PLIST="$RUNNER_TEMP/embedded-profile.plist"
+          security cms -D -i "$APP_PATH/embedded.mobileprovision" > "$EMBEDDED_PLIST"
+          embedded_app_id=$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$EMBEDDED_PLIST")
+          embedded_beta=$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:beta-reports-active' "$EMBEDDED_PLIST" 2>/dev/null || true)
+
+          if [[ "$embedded_app_id" != *."$IOS_BUNDLE_ID" || "$embedded_beta" != "true" ]]; then
+            echo "::error::The embedded profile is not an App Store profile for $IOS_BUNDLE_ID."
+            exit 1
+          fi
+
           echo "IPA validated: $IPA_PATH"
           echo "Built Bundle ID: $built_bundle_id"
+          echo "Version/build: $built_version ($built_number)"
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: BlockMerge2048-iOS-${{ inputs.app_version }}
+          name: BlockMerge2048-iOS-${{ inputs.app_version }}-${{ env.IOS_BUILD_NUMBER }}
           path: build/ios/*
           if-no-files-found: error
           retention-days: 14
@@ -390,7 +486,7 @@ jobs:
             gh release create "${{ inputs.release_tag }}" \
               --repo "$GITHUB_REPOSITORY" \
               --title "${{ inputs.release_tag }}" \
-              --notes "iOS build ${{ inputs.app_version }}"
+              --notes "iOS build ${{ inputs.app_version }} ($IOS_BUILD_NUMBER)"
           fi
 
           gh release upload "${{ inputs.release_tag }}" \
@@ -422,3 +518,12 @@ jobs:
             --file "$IPA_PATH" \
             --apiKey "$APP_STORE_CONNECT_API_KEY_ID" \
             --apiIssuer "$APP_STORE_CONNECT_API_ISSUER_ID"
+
+      - name: Clean up temporary signing files
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set +e
+          rm -f "${ASC_KEY_PATH:-}"
+          rm -f "$HOME/.appstoreconnect/private_keys/AuthKey_${APP_STORE_CONNECT_API_KEY_ID}.p8"
+          rm -rf "$RUNNER_TEMP/fastlane-signing" "$RUNNER_TEMP/ipa-validation" "$RUNNER_TEMP/solar2d-project"
