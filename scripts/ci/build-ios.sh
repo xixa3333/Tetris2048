@@ -2,7 +2,7 @@
 set -euo pipefail
 
 APP_NAME="${IOS_APP_NAME:-BlockMerge2048}"
-APP_VERSION="${APP_VERSION:-2.4.1}"
+APP_VERSION="${APP_VERSION:-2.4.2}"
 APP_BUILD_NUMBER="${IOS_BUILD_NUMBER:-1}"
 MIN_IOS_VERSION="${IOS_MINIMUM_VERSION:-15.0}"
 SOURCE_PROJECT_PATH="$(pwd)/src"
@@ -33,7 +33,7 @@ if [[ ! -f "$SOURCE_PROJECT_PATH/main.lua" ]]; then
 fi
 
 if [[ ! "$APP_VERSION" =~ ^[0-9]+(\.[0-9]+){1,2}$ ]]; then
-  echo "APP_VERSION must look like 2.4 or 2.4.1: $APP_VERSION" >&2
+  echo "APP_VERSION must look like 2.4 or 2.4.2: $APP_VERSION" >&2
   exit 1
 fi
 
@@ -105,8 +105,6 @@ find_icon_source() {
     "$PROJECT_PATH/icon-1024.png"
     "$PROJECT_PATH/Icon.png"
     "$PROJECT_PATH/icon.png"
-    "$PROJECT_PATH/image/Icon-1024.png"
-    "$PROJECT_PATH/image/icon-1024.png"
     "$PROJECT_PATH/assets/Icon.png"
     "$PROJECT_PATH/assets/icon.png"
   )
@@ -136,7 +134,7 @@ find_icon_source() {
 ICON_SOURCE="$(find_icon_source || true)"
 if [[ -z "$ICON_SOURCE" || ! -f "$ICON_SOURCE" ]]; then
   echo "No square PNG app icon was found under src/." >&2
-  echo "Add src/image/Icon-1024.png (1024x1024, PNG, no transparency) and run again." >&2
+  echo "Add src/Icon-1024.png (1024x1024, PNG, no transparency) and run again." >&2
   exit 1
 fi
 
