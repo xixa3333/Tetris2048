@@ -54,6 +54,7 @@ jobs:
       MATCH_GIT_URL: ${{ vars.MATCH_GIT_URL }}
       MATCH_GIT_BRANCH: ${{ vars.MATCH_GIT_BRANCH || 'match-signing' }}
       IOS_BUILD_NUMBER: ${{ github.run_number }}.${{ github.run_attempt }}
+      IOS_MINIMUM_VERSION: "15.0"
 
       APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
       APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
@@ -433,6 +434,8 @@ jobs:
           built_bundle_id=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP_PATH/Info.plist")
           built_version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP_PATH/Info.plist")
           built_number=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP_PATH/Info.plist")
+          built_minimum_ios=$(/usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$APP_PATH/Info.plist" 2>/dev/null || true)
+          built_icon_name=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIconName' "$APP_PATH/Info.plist" 2>/dev/null || true)
 
           if [[ "$built_bundle_id" != "$IOS_BUNDLE_ID" ]]; then
             echo "::error::Built Bundle ID '$built_bundle_id' does not match IOS_BUNDLE_ID '$IOS_BUNDLE_ID'."
@@ -446,6 +449,28 @@ jobs:
 
           if [[ "$built_number" != "$IOS_BUILD_NUMBER" ]]; then
             echo "::error::Built number '$built_number' does not match CI build number '$IOS_BUILD_NUMBER'. Replace scripts/ci/build-ios.sh with the companion fixed version."
+            exit 1
+          fi
+
+          if [[ "$built_icon_name" != "AppIcon" ]]; then
+            echo "::error::CFBundleIconName is '$built_icon_name'; expected 'AppIcon'. Replace scripts/ci/build-ios.sh with the icon-fixed version."
+            exit 1
+          fi
+
+          if [[ ! -f "$APP_PATH/Assets.car" ]]; then
+            echo "::error::The built app has no Assets.car, so the AppIcon asset catalog was not compiled."
+            exit 1
+          fi
+
+          if [[ -z "$built_minimum_ios" ]]; then
+            echo "::error::MinimumOSVersion is missing from Info.plist."
+            exit 1
+          fi
+
+          minimum_major="${built_minimum_ios%%.*}"
+          required_major="${IOS_MINIMUM_VERSION%%.*}"
+          if [[ ! "$minimum_major" =~ ^[0-9]+$ || "$minimum_major" -lt "$required_major" ]]; then
+            echo "::error::MinimumOSVersion '$built_minimum_ios' is lower than required '$IOS_MINIMUM_VERSION'."
             exit 1
           fi
 
@@ -469,6 +494,8 @@ jobs:
           echo "IPA validated: $IPA_PATH"
           echo "Built Bundle ID: $built_bundle_id"
           echo "Version/build: $built_version ($built_number)"
+          echo "Minimum iOS: $built_minimum_ios"
+          echo "Primary icon asset: $built_icon_name"
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
