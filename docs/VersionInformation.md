@@ -2,6 +2,8 @@
 
 ## 2.4.1
 
+- iPhone / iPad 玩家可透過 TestFlight 參加測試：https://testflight.apple.com/join/vpY5718p
+
 - 加入設定頁背景音樂選擇，可自動讀取 `BackGround_XX_音樂名稱.mp3`。
 - 背景音樂改為 APP 開啟期間播放，進入背景程序時停止、回前景恢復。
 - 預設音樂改為 CC0 的 `Cozy Puzzle In-Game 1`，新增恐怖風格 `Spooky Dungeon`。

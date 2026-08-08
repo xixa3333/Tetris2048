@@ -50,8 +50,10 @@ function AppController:showIntro()
     self.screen="intro"; self.view:showIntro(function() self:showCover() end)
 end
 function AppController:openExternal(url)
-    local allowed=url==self.info.repositoryUrl or url==self.info.issuesUrl or url==self.info.authorUrl or url==self.info.latestReleaseUrl
-    if not allowed or type(url)~="string" or not url:match("^https://github%.com/") then return false end
+    local allowed=url==self.info.repositoryUrl or url==self.info.issuesUrl or url==self.info.authorUrl
+        or url==self.info.latestReleaseUrl
+    if not allowed or type(url)~="string" then return false end
+    if not url:match("^https://github%.com/") then return false end
     return self.platform:openURL(url)~=false
 end
 function AppController:showAppInfo(page)

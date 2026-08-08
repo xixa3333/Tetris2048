@@ -132,6 +132,7 @@ T.test("Cover APP information routes through versions and safe GitHub links",fun
     T.equal(platform.urls[1],"https://github.com/xixa3333/Tetris2048")
     T.equal(platform.urls[2],"https://github.com/xixa3333/Tetris2048/issues")
     T.equal(platform.urls[3],"https://github.com/xixa3333")
+    T.equal(app:openExternal("https://testflight.apple.com/join/vpY5718p"),false)
     T.equal(app:openExternal("https://example.com/phishing"),false)
     view.actions.next(); T.equal(view.model.items[1].version,"2.4.0")
     app:onResume(); T.equal(view.screen,"appInfo"); T.equal(view.model.items[1].version,"2.4.0")

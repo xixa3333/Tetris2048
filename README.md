@@ -16,7 +16,7 @@ BlockMerge 2048 是一款把「方塊滑動」和「2048 合併得分」混在�
 
 - Android：下載 APK 後安裝。
 - Windows：下載 ZIP，解壓縮後執行 `BlockMerge2048.exe`。
-- iPhone / iPad：目前準備透過 TestFlight 測試，尚未開放一般下載。
+- iPhone / iPad：可透過 TestFlight 參加測試：[加入 TestFlight](https://testflight.apple.com/join/vpY5718p)。
 
 ## 遊戲目標
 
