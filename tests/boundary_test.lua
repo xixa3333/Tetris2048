@@ -16,7 +16,7 @@ T.test("Boundary: a single cell reaches each of the four board edges", function(
     for direction, expected in pairs(cases) do
         local grid = Board.new(10, 10)
         grid[5][5] = 1
-        local moved = Board.slide(grid, direction)
+        local moved = Board.slideWithMoves(grid, direction)
         T.equal(moved[expected.row][expected.column], 1, direction .. " edge was not reached")
     end
 end)
@@ -79,7 +79,7 @@ end)
 T.test("Boundary: placement accepts the bottom-right corner", function()
     local grid = Board.new(10, 10)
     T.equal(Board.canPlace(grid, {{1}}, 10, 10), true)
-    Board.place(grid, {{1}}, 10, 10)
+    T.equal(Board.tryPlace(grid, {{1}}, 10, 10), true)
     T.equal(grid[10][10], 1)
 end)
 
@@ -120,7 +120,7 @@ end)
 
 T.test("Boundary: empty board remains empty after movement and line clearing", function()
     local grid = Board.new(10, 10)
-    T.gridEqual(Board.slide(grid, "down"), grid)
+    T.gridEqual(Board.slideWithMoves(grid, "down"), grid)
     local result = Board.clearCompletedLines(grid)
     T.equal(result.lineCount, 0)
     T.equal(#result.cells, 0)

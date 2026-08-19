@@ -20,3 +20,11 @@ T.test("Privacy boundary keeps credentials out of shared local score records",fu
     local record=board:add("uid","暱稱",10,1)
     T.equal(record.account,"暱稱"); T.equal(record.password,nil); T.equal(record.refreshToken,nil)
 end)
+T.test("Security boundary refuses to change a password without an active session",function()
+    local AuthService=require("auth_service"); local http={calls=0}
+    function http:request() self.calls=self.calls+1 end
+    local auth=AuthService.new(http,{apiKey="key"})
+    local reported
+    auth:changePassword("123456",function(ok,message) reported={ok=ok,message=message} end)
+    T.equal(reported.ok,false); T.equal(reported.message,"請先登入"); T.equal(http.calls,0)
+end)

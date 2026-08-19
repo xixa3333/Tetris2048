@@ -22,6 +22,14 @@ function AppView:showUpdatePrompt(version,update)
             if event.action=="clicked" and event.index==1 then update() end
         end)
 end
+function AppView:showNotice(message)
+    native.showAlert("提示",message,{"知道了"})
+end
+function AppView:confirm(message,onConfirm)
+    native.showAlert("請確認",message,{"確定","取消"},function(event)
+        if event.action=="clicked" and event.index==1 then onConfirm() end
+    end)
+end
 function AppView:hide()
     for _,field in ipairs(self.fields) do remove(field) end
     self.fields={}; remove(self.group); self.group=nil; self.status=nil
@@ -52,25 +60,6 @@ function AppView:showModeSelect(start,back)
     text(g,"模式2：輕鬆物件模式\n同色相鄰仍保持不同物件，操作更直覺。",250,430,19,BRIGHT)
     button(g,"模式2：輕鬆",250,545,function() start(2) end,250,58)
     button(g,"返回主畫面",250,720,back,190,50)
-end
-function AppView:showSettings(model,save,back)
-    -- Keep the settings screen on the same 500 x 850 layout grid as the cover.
-    -- config.lua letterboxes this grid on every device, preventing controls from drifting.
-    local g=self:_screen("設定")
-    local backgroundLabel=text(g,"背景音樂："..model.backgroundVolume.."%",250,165,21,BRIGHT)
-    local background=widget.newSlider({x=250,y=215,width=360,value=model.backgroundVolume,
-        listener=function(event) model.backgroundVolume=math.floor(event.value+0.5); backgroundLabel.text="背景音樂："..model.backgroundVolume.."%" end})
-    g:insert(background)
-    local effectLabel=text(g,"消除 / Game Over 音效："..model.effectVolume.."%",250,290,21,BRIGHT)
-    local effect=widget.newSlider({x=250,y=340,width=360,value=model.effectVolume,
-        listener=function(event) model.effectVolume=math.floor(event.value+0.5); effectLabel.text="消除 / Game Over 音效："..model.effectVolume.."%" end})
-    g:insert(effect)
-    text(g,"關卡種子",250,420,23,ACCENT)
-    text(g,"相同種子會重現相同的方塊與落點順序，\n適合和朋友挑戰同一關；留空就是一般隨機。",250,475,17,BRIGHT)
-    local seed=native.newTextField(250,555,360,50); seed.placeholder="留空＝隨機"; seed.text=model.seed or ""
-    self.fields={seed}
-    button(g,"儲存設定",250,655,function() model.seed=seed.text; save(model) end)
-    button(g,"取消",250,735,back,160)
 end
 function AppView:showIntro(back)
     local g=self:_screen("遊戲介紹")
@@ -104,14 +93,41 @@ function AppView:showAuth(actions)
     self.fields={account,password}; self.status=text(g,"",250,380,17,{1,0.65,0.35})
     button(g,"登入",155,465,function() actions.login(account.text,password.text) end,150)
     button(g,"註冊",345,465,function() actions.register(account.text,password.text) end,150)
-    button(g,"忘記密碼",250,550,function() actions.forgot(account.text) end,220)
-    button(g,"返回",250,635,actions.back,150)
+    button(g,"忘記密碼",250,545,function() actions.forgot(account.text) end,220)
+    if actions.shortcut then
+        button(g,"快捷登入",250,625,actions.shortcut,220)
+        button(g,"返回",250,705,actions.back,150)
+    else
+        button(g,"返回",250,635,actions.back,150)
+    end
 end
-function AppView:showAccountInfo(account,back)
+-- 快捷登入：列出這台裝置登入過的帳號，右邊可以單獨移除該筆。
+-- 移除只是拿掉快捷登入選項，不會刪除帳號或排行榜紀錄。
+function AppView:showShortcutAccounts(accounts,actions)
+    local g=self:_screen("快捷登入")
+    if #accounts==0 then
+        text(g,"這台裝置還沒有登入過的帳號",250,300,20,BRIGHT)
+    else
+        text(g,"選擇要登入的帳號",250,150,20,CYAN)
+        for index,entry in ipairs(accounts) do
+            local y=215+(index-1)*70
+            local label=entry.name
+            if not entry.hasCredential then label=label.."（本機）" end
+            button(g,label,180,y,function() actions.select(entry) end,270,54)
+            button(g,"移除",410,y,function() actions.forget(entry) end,140,54)
+        end
+        text(g,"標示「本機」的帳號需要重新輸入密碼才能使用全球排行榜。",250,600,16,BRIGHT)
+    end
+    self.status=text(g,"",250,680,17,{1,0.65,0.35})
+    button(g,"返回",250,760,actions.back,150)
+end
+function AppView:showAccountInfo(account,back,onDelete)
     local g=self:_screen("帳號 ID")
     text(g,"目前 ID："..account,250,230,22,CYAN)
     text(g,"帳號 ID 建立後不可修改",250,310,19,BRIGHT)
-    button(g,"返回排行榜",250,500,back)
+    self.status=text(g,"",250,380,17,{1,0.65,0.35})
+    button(g,"返回排行榜",250,470,back)
+    if onDelete then button(g,"刪除帳號",250,560,onDelete,220,48) end
 end
 function AppView:showLegacyMigration(save,back)
     local g=self:_screen("轉換舊帳號")
@@ -141,6 +157,8 @@ function AppView:showPasswordChange(save,back)
 end
 function AppView:showLeaderboard(title,model,actions,canDelete)
     local g=self:_screen(title)
+    local player=model.playerName or "訪客"
+    if model.offline then player=player.."（離線）" elseif not model.signedIn then player=player.."（未登入）" end
     button(g,"本機",46,150,actions.localTab,82); button(g,"全球",148,150,actions.globalTab,82)
     button(g,actions.accountLabel or "帳號 ID",250,150,actions.account,82); button(g,"暱稱",352,150,actions.nickname,82)
     button(g,"密碼",454,150,actions.password,82)
@@ -168,13 +186,17 @@ function AppView:showLeaderboard(title,model,actions,canDelete)
     if model.hasPrevious then button(g,"上一頁",125,700,actions.previous,120,46) end
     text(g,string.format("%d / %d",model.page,model.totalPages),250,700,18,ACCENT)
     if model.hasNext then button(g,"下一頁",375,700,actions.next,120,46) end
+    -- 標題列在 y=85、分頁按鈕上緣在 y=121，中間放不下這行字，改放在分頁與底部按鈕之間。
+    text(g,"目前："..player,250,742,16,CYAN)
     button(g,"登出",140,790,actions.logout,150); button(g,"主畫面",350,790,actions.back,170)
 end
 function AppView:showLoading(value) local g=self:_screen("請稍候"); text(g,value,250,350,21,BRIGHT) end
 function AppView:showError(value,back)
     local g=self:_screen("發生錯誤"); text(g,value,250,330,20,{1,0.65,0.35}); button(g,"回到主畫面",250,500,back)
 end
-function AppView:showSettings(model,save,back)
+function AppView:showSettings(model,save,back,preview)
+    -- 即時預覽：調整後立刻套用，但要按「儲存設定」才會寫入；取消或離開會被還原。
+    local function apply(channel) if preview then preview(model,channel) end end
     local g=self:_screen("設定")
     local tracks=model.musicTracks or {}
     local selectedIndex=1
@@ -187,16 +209,21 @@ function AppView:showSettings(model,save,back)
         selectedIndex=((selectedIndex-1+delta)%#tracks)+1
         model.backgroundTrack=selectedTrack().id
         musicLabel.text="背景音樂："..selectedTrack().name
+        apply("music")
     end
     button(g,"上一首",135,205,function() selectMusic(-1) end,150,46)
     button(g,"下一首",365,205,function() selectMusic(1) end,150,46)
     local backgroundLabel=text(g,"背景音量："..model.backgroundVolume.."%",250,270,21,BRIGHT)
     local background=widget.newSlider({x=250,y=320,width=360,value=model.backgroundVolume,
-        listener=function(event) model.backgroundVolume=math.floor(event.value+0.5); backgroundLabel.text="背景音量："..model.backgroundVolume.."%" end})
+        listener=function(event) model.backgroundVolume=math.floor(event.value+0.5)
+            backgroundLabel.text="背景音量："..model.backgroundVolume.."%"; apply("background") end})
     g:insert(background)
     local effectLabel=text(g,"消除 / Game Over 音量："..model.effectVolume.."%",250,395,21,BRIGHT)
     local effect=widget.newSlider({x=250,y=445,width=360,value=model.effectVolume,
-        listener=function(event) model.effectVolume=math.floor(event.value+0.5); effectLabel.text="消除 / Game Over 音量："..model.effectVolume.."%" end})
+        listener=function(event) model.effectVolume=math.floor(event.value+0.5)
+            effectLabel.text="消除 / Game Over 音量："..model.effectVolume.."%"
+            -- 拖曳過程只調音量，放開手指才試聽一次，避免連續播放。
+            apply((event.phase==nil or event.phase=="ended") and "effect" or nil) end})
     g:insert(effect)
     text(g,"關卡種子",250,520,23,ACCENT)
     text(g,"相同種子會產生相同的方塊順序，\n適合和朋友挑戰同一局；留空就是一般隨機。",250,565,16,BRIGHT)

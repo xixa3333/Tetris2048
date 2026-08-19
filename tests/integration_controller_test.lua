@@ -51,7 +51,7 @@ local function buildSystem(callbacks)
 
     local controller = GameController.new({
         state = GameState.new(), logic = GameLogic, view = view,
-        scheduler = scheduler, input = input, sound = sound, random = chooseFirst,
+        scheduler = scheduler, input = input, sound = sound, random = callbacks.random or chooseFirst,
         onGameOver = callbacks.onGameOver, onHome = callbacks.onHome
     })
     return controller, view, scheduler, input, sound
@@ -186,4 +186,114 @@ T.test("A stale animation callback cannot modify a restarted game", function()
     staleCallback()
     T.gridEqual(controller.state.grid, expected)
     T.equal(controller.state.isBusy, false)
+end)
+
+T.test("Turn phases follow the declared state machine from idle back to idle", function()
+    local controller, _, scheduler = buildSystem()
+    controller:start()
+    T.equal(controller:phase(), "idle")
+    controller:handle("left")
+    T.equal(controller:phase(), "moving")
+    local phases = {}
+    while #scheduler.queue > 0 do
+        scheduler:flushOne()
+        phases[#phases + 1] = controller:phase()
+    end
+    T.equal(phases[#phases], "idle")
+    T.equal(controller.state.isBusy, false)
+end)
+
+T.test("The busy composite state owns the input lock for every animated phase", function()
+    local controller, _, scheduler = buildSystem()
+    controller:start()
+    controller:handle("down")
+    while #scheduler.queue > 0 do
+        T.equal(controller.state.isBusy, true, "lock released while phase is " .. controller:phase())
+        scheduler:flushOne()
+    end
+    T.equal(controller:phase(), "idle")
+    T.equal(controller.state.isBusy, false)
+end)
+
+T.test("Game over is a sibling state that only restart or home can leave", function()
+    local homes = 0
+    local controller, view = buildSystem({onGameOver = function() end, onHome = function() homes = homes + 1 end})
+    controller:start(); controller:finishGame()
+    T.equal(controller:phase(), "gameOver")
+    T.equal(controller.state.isBusy, false)
+    T.equal(controller:handle("left"), false)
+    T.equal(controller:handle("home"), false)
+    view.restart()
+    T.equal(controller:phase(), "idle")
+    controller:finishGame(); controller:returnHome()
+    T.equal(controller:phase(), "idle")
+    T.equal(homes, 1)
+end)
+
+T.test("A game that ends before it starts still reports its score exactly once", function()
+    local recorded = 0
+    local controller = buildSystem({onGameOver = function() recorded = recorded + 1 end})
+    T.equal(controller:phase(), "idle")
+    controller:returnHome()
+    T.equal(recorded, 1)
+    controller:finishGame()
+    T.equal(recorded, 1)
+end)
+
+T.test("Resume reports success both while idle and before the first game", function()
+    local controller, view, _, input = buildSystem()
+    T.equal(controller:resume(), true)
+    T.equal(view.recoverCount, nil)
+    T.equal(input.startCount, 0)
+    controller:start(); controller:pause()
+    T.equal(controller:resume(), true)
+    T.equal(view.recoverCount, 1)
+    controller:finishGame()
+    T.equal(controller:resume(), true)
+    T.equal(view.overlayVisible, true)
+end)
+
+T.test("The injected random source is the only source of new pieces", function()
+    local draws = 0
+    local controller = buildSystem({random = function(minimum) draws = draws + 1; return minimum end})
+    controller:start()
+    T.equal(draws > 0, true)
+    T.equal(controller.state.currentPiece, 1)
+    T.equal(controller.state.nextPiece, 1)
+    local before = draws
+    controller:handle("reserve")
+    T.equal(draws > before, true)
+end)
+
+T.test("Every direction command starts a turn while unknown commands are ignored", function()
+    for _, direction in ipairs({"up", "down", "left", "right"}) do
+        local controller, view, scheduler = buildSystem()
+        controller:start()
+        local renders = view.renderCount
+        T.equal(controller:handle(direction), true, "direction was rejected: " .. direction)
+        T.equal(controller:phase(), "moving")
+        scheduler:flush()
+        T.equal(view.renderCount > renders, true)
+    end
+    local controller = buildSystem()
+    controller:start()
+    T.equal(controller:handle("diagonal"), false)
+    T.equal(controller:handle(nil), false)
+    T.equal(controller:phase(), "idle")
+end)
+
+T.test("Mode selection is normalised into the shared game state", function()
+    local controller = buildSystem()
+    controller:setMode(2)
+    T.equal(controller.state.mode, 2)
+    controller:setMode(1)
+    T.equal(controller.state.mode, 1)
+    controller:setMode("2")
+    T.equal(controller.state.mode, 2)
+    for _, invalid in ipairs({"", "abc", 0, 3}) do
+        controller:setMode(invalid)
+        T.equal(controller.state.mode, 1, "unexpected mode for " .. tostring(invalid))
+    end
+    controller:setMode(2); controller:start()
+    T.equal(controller.state.mode, 2, "restarting a game must keep the selected mode")
 end)

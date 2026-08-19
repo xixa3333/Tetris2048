@@ -16,3 +16,9 @@ T.test("Music library falls back to the first track when selection is missing",f
     T.equal(MusicLibrary.find(tracks,"BackGround_02_B.mp3").name,"B")
     T.equal(MusicLibrary.find(tracks,"missing").name,"A")
 end)
+
+T.test("Music library returns no tracks when the platform cannot list resources",function()
+    T.equal(#MusicLibrary.fromSolar2D(nil,nil,"music"),0)
+    T.equal(#MusicLibrary.fromSolar2D({dir=function() end},{},"music"),0)
+    T.equal(#MusicLibrary.fromSolar2D({},{pathForFile=function() return "/tmp" end},"music"),0)
+end)

@@ -73,51 +73,6 @@ function Board.canPlace(grid, shape, top, left)
     return true
 end
 
-local ORTHOGONAL_NEIGHBORS = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}}
-
-local function shapeOccupies(shape)
-    local occupied = {}
-    for row = 1, #shape do
-        for column = 1, #shape[row] do
-            if shape[row][column] ~= 0 then
-                occupied[row .. ":" .. column] = true
-            end
-        end
-    end
-    return occupied
-end
-
--- Placement difficulty rule: a new piece should not touch an existing board
--- cell with the same color. Cells inside the same falling piece are allowed to
--- touch because they are one object; if a later clear splits them, sliding sees
--- those remaining islands as separate connected components.
-function Board.hasAdjacentSameColor(grid, shape, top, left)
-    local occupied = shapeOccupies(shape)
-    for row = 1, #shape do
-        for column = 1, #shape[row] do
-            local value = shape[row][column]
-            if value ~= 0 then
-                local targetRow, targetColumn = top + row - 1, left + column - 1
-                for _, offset in ipairs(ORTHOGONAL_NEIGHBORS) do
-                    local localRow, localColumn = row + offset[1], column + offset[2]
-                    if not occupied[localRow .. ":" .. localColumn] then
-                        local boardRow, boardColumn = targetRow + offset[1], targetColumn + offset[2]
-                        if grid[boardRow] and grid[boardRow][boardColumn] == value then
-                            return true
-                        end
-                    end
-                end
-            end
-        end
-    end
-    return false
-end
-
-function Board.canPlaceSeparated(grid, shape, top, left)
-    return Board.canPlace(grid, shape, top, left)
-        and not Board.hasAdjacentSameColor(grid, shape, top, left)
-end
-
 -- Transactional placement: validate every occupied target before writing any cell.
 -- Returning false leaves the grid byte-for-byte unchanged.
 function Board.tryPlace(grid, shape, top, left, objectGrid, objectId)
@@ -142,10 +97,6 @@ function Board.tryPlace(grid, shape, top, left, objectGrid, objectId)
         if objectGrid then objectGrid[target.row][target.column] = objectId end
     end
     return true, targets
-end
-
-function Board.place(grid, shape, top, left, objectGrid, objectId)
-    assert(Board.tryPlace(grid, shape, top, left, objectGrid, objectId), "cannot place shape at requested position")
 end
 
 -- 尋找所有同色且上下左右相連的元件。
@@ -306,11 +257,6 @@ function Board.slideWithMoves(grid, direction, objectGrid)
     end
 
     return result, moves, resultObjects
-end
-
-function Board.slide(grid, direction)
-    local result = Board.slideWithMoves(grid, direction)
-    return result
 end
 
 -- 清除完整橫列與直行。交叉格只回報一次，分數仍以線數計算。

@@ -12,6 +12,7 @@ local JsonStorage=require("json_storage")
 local ProfileService=require("profile_service")
 local InputAdapter=require("input_adapter")
 local SessionStore=require("session_store")
+local AccountStore=require("account_store")
 local LifecycleAdapter=require("lifecycle_adapter")
 local firebaseConfig=require("firebase_config_loader").load()
 local appInfo=require("app_info")
@@ -51,7 +52,8 @@ local game=GameController.new({state=GameState.new(),logic=GameLogic,view=gameVi
 gameView:setCommandHandler(function(command) game:handle(command) end)
 local http=HttpClient.new()
 local update=UpdateService.new(http,appInfo)
-local auth=AuthService.new(http,firebaseConfig,SessionStore.new(JsonStorage.new("session.json")))
+local auth=AuthService.new(http,firebaseConfig,SessionStore.new(JsonStorage.new("session.json")),
+    AccountStore.new(JsonStorage.new("accounts.json")))
 local profile=ProfileService.new(http,firebaseConfig,auth)
 local globalBoard=GlobalLeaderboard.new(http,firebaseConfig,auth)
 app=AppController.new({view=AppView.new(),game=game,auth=auth,profile=profile,

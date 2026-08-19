@@ -19,3 +19,21 @@ T.test("Random factory resets seeded games and preserves unseeded fallback",func
     local fallback=function() return 7 end; settings.get=function() return {seed=""} end
     T.equal(SeededRandom.factory(settings,fallback)(),fallback)
 end)
+T.test("A published seed keeps producing the same piece order across releases",function()
+    local stream=SeededRandom.new("friends-01"); local drawn={}
+    for _=1,6 do drawn[#drawn+1]=stream(1,7) end
+    -- 玩家用同一組種子挑戰同一關，改版時這串順序不可以改變。
+    T.equal(table.concat(drawn,","),"7,5,7,4,2,7")
+    local other=SeededRandom.new("friends-02"); local otherDrawn={}
+    for _=1,6 do otherDrawn[#otherDrawn+1]=other(1,7) end
+    T.equal(table.concat(otherDrawn,","),"7,5,1,1,1,6")
+end)
+T.test("Calling the generator without bounds returns a repeatable unit fraction",function()
+    local stream=SeededRandom.new("friends-01")
+    local first,second=stream(),stream()
+    T.equal(string.format("%.9f",first),"0.788085923")
+    T.equal(string.format("%.9f",second),"0.360108944")
+    T.equal(first>=0 and first<1,true)
+    local repeated=SeededRandom.new("friends-01")
+    T.equal(repeated(),first)
+end)

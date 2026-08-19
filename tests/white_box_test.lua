@@ -10,7 +10,7 @@ T.test("White-box: different colored components block without merging", function
     local grid = Board.new(4, 4)
     grid[2][1] = 1
     grid[2][4] = 2
-    local moved = Board.slide(grid, "left")
+    local moved = Board.slideWithMoves(grid, "left")
     T.equal(moved[2][1], 1)
     T.equal(moved[2][2], 2)
 end)
@@ -20,7 +20,7 @@ T.test("White-box: a zero inside a piece shape does not overwrite the board", fu
     grid[2][1] = 9
     local shape = {{1, 1, 1}, {0, 1, 0}}
     T.equal(Board.canPlace(grid, shape, 1, 1), true)
-    Board.place(grid, shape, 1, 1)
+    T.equal(Board.tryPlace(grid, shape, 1, 1), true)
     T.equal(grid[2][1], 9)
 end)
 
@@ -121,3 +121,5 @@ T.test("White-box: game-over branch stops input and exposes restart callback", f
     T.equal(sound.gameOverCount, 1)
     T.truthy(view.restart)
 end)
+
+

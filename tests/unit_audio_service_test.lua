@@ -1,5 +1,6 @@
 local T=require("test_helper")
 local AudioService=require("audio_service")
+local SettingsService=require("settings_service")
 
 local function build(background,effect,track)
     local audio={plays={},stops=0,volumes={}}
@@ -42,4 +43,29 @@ T.test("Background track setting switches to the selected loaded stream",functio
     T.equal(audio.plays[1].file,"bg-a")
     settings.value.backgroundTrack="b"; settings.listeners[1](settings.value); sound:playBackground()
     T.equal(audio.plays[2].file,"bg-b")
+end)
+
+T.test("Previewing music switches the playing track and reverting brings it back",function()
+    local storage={data={backgroundVolume=50,effectVolume=40,seed="",backgroundTrack="a"}}
+    function storage:load() return self.data end
+    function storage:save(data) self.data=data end
+    local settings=SettingsService.new(storage)
+    local adapter={played={},volumes={},stops=0}
+    function adapter.play(file,options) adapter.played[#adapter.played+1]={file=file,channel=options.channel} end
+    function adapter.setVolume(value,options) adapter.volumes[#adapter.volumes+1]={value=value,channel=options.channel} end
+    function adapter.stop() adapter.stops=adapter.stops+1 end
+    local service=AudioService.new(adapter,{background="track-a",eliminate="ping",gameOver="over",
+        backgroundTracks={a="track-a",b="track-b"}},settings)
+    service:playBackground()
+    T.equal(adapter.played[1].file,"track-a")
+
+    local previewed=settings:get(); previewed.backgroundTrack="b"; previewed.backgroundVolume=90
+    settings:preview(previewed)
+    T.equal(adapter.played[#adapter.played].file,"track-b")
+    T.equal(adapter.volumes[#adapter.volumes].value,0.9)
+
+    settings:revert()
+    T.equal(adapter.played[#adapter.played].file,"track-a")
+    T.equal(adapter.volumes[#adapter.volumes].value,0.5)
+    T.equal(storage.data.backgroundTrack,"a")
 end)

@@ -1,6 +1,7 @@
 package.path = "../src/?.lua;./?.lua;" .. package.path
 
 local T = require("test_helper")
+require("unit_state_machine_test")
 require("unit_board_test")
 require("unit_game_logic_test")
 require("unit_game_over_layout_test")
@@ -19,6 +20,8 @@ require("unit_auth_session_test")
 require("unit_account_identity_test")
 require("unit_account_migration_test")
 require("unit_settings_test")
+require("unit_firebase_config_test")
+require("unit_account_store_test")
 require("unit_update_service_test")
 require("unit_seeded_random_test")
 require("unit_audio_service_test")

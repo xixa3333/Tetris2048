@@ -53,3 +53,67 @@ T.test("Profile reports actionable Firebase and network errors",function()
         end)
     end
 end)
+
+T.test("Profile reads an existing nickname and caches it on the signed-in user",function()
+    local profile,http,auth=service({ok=true,status=200,data={fields={nickname={stringValue="舊玩家"}}}})
+    local reported
+    profile:get(function(ok,nickname) reported={ok=ok,nickname=nickname} end)
+    T.equal(reported.ok,true); T.equal(reported.nickname,"舊玩家")
+    T.equal(auth.user.nickname,"舊玩家"); T.equal(http.calls,1)
+    local missing=service({ok=false,status=404})
+    missing:get(function(ok,nickname) T.equal(ok,true); T.equal(nickname,nil) end)
+    local broken=service({ok=false,status=500})
+    broken:get(function(ok,message) T.equal(ok,false); T.equal(message,"暱稱讀取失敗") end)
+end)
+
+T.test("Profile deletion accepts an already missing document during migration",function()
+    local removed=service({ok=false,status=404})
+    removed:deleteCurrent(function(ok) T.equal(ok,true) end)
+    local refused=service({ok=false,status=403})
+    refused:deleteCurrent(function(ok) T.equal(ok,false) end)
+end)
+
+T.test("Nickname validation accepts the last two-byte UTF-8 lead byte",function()
+    local nko=string.char(0xDF,0x81)
+    T.equal(NicknamePolicy.length(nko:rep(3)),3)
+    T.equal(NicknamePolicy.validate(nko:rep(3)),nko:rep(3))
+end)
+
+T.test("Nickname validation accepts the highest UTF-8 continuation byte",function()
+    local highest=string.char(0xDF,0xBF)
+    T.equal(NicknamePolicy.length(highest:rep(2)),2)
+    T.equal(NicknamePolicy.validate(highest:rep(2)),highest:rep(2))
+    T.equal(NicknamePolicy.validate(string.char(0xDF,0xC0):rep(2)),nil)
+end)
+
+T.test("Nickname validation accepts the lowest two-byte UTF-8 lead byte",function()
+    local copyright=string.char(0xC2,0xA9)
+    T.equal(NicknamePolicy.length(copyright:rep(2)),2)
+    T.equal(NicknamePolicy.validate(copyright:rep(2)),copyright:rep(2))
+    -- 0xC1 是過長編碼的開頭，必須被拒絕。
+    T.equal(NicknamePolicy.validate(string.char(0xC1,0xA9):rep(2)),nil)
+    -- 三位元組與四位元組的最小開頭位元組也要當成合法字元。
+    local thai=string.char(0xE0,0xB8,0x81)
+    T.equal(NicknamePolicy.length(thai:rep(3)),3)
+    T.equal(NicknamePolicy.validate(thai:rep(3)),thai:rep(3))
+    local emoji=string.char(0xF0,0x9F,0x98,0x80)
+    T.equal(NicknamePolicy.length(emoji:rep(2)),2)
+    T.equal(NicknamePolicy.validate(emoji:rep(2)),emoji:rep(2))
+end)
+
+T.test("A local identity without a credential never crashes the profile request",function()
+    local auth={user={uid="u1"}}
+    function auth:currentUser() return self.user end
+    local http={calls=0}
+    function http:request(_,_,_,headers,callback)
+        self.calls=self.calls+1; self.headers=headers; callback(false,{},401)
+    end
+    local profile=ProfileService.new(http,{projectId="p"},auth)
+    local ok,message=pcall(function()
+        profile:get(function(success) T.equal(success,false) end)
+        profile:save("玩家一",function(success) T.equal(success,false) end)
+        profile:deleteCurrent(function(success) T.equal(success,false) end)
+    end)
+    T.equal(ok,true,tostring(message))
+    T.equal(http.headers,nil); T.equal(http.calls,3)
+end)

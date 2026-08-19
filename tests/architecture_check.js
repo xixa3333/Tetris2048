@@ -24,7 +24,7 @@ function read(path) {
 
 test("Architecture: pure rule modules do not depend on Solar2D globals", () => {
   const forbidden = ["display.", "audio.", "timer.", "Runtime:", 'require("widget")'];
-  for (const path of ["../src/board.lua", "../src/game_state.lua", "../src/game_logic.lua", "../src/pagination.lua", "../src/game_guide.lua"]) {
+  for (const path of ["../src/board.lua", "../src/game_state.lua", "../src/game_logic.lua", "../src/pagination.lua", "../src/game_guide.lua", "../src/state_machine.lua"]) {
     const contents = read(path);
     for (const token of forbidden) assert(!contents.includes(token), `${path} contains forbidden dependency ${token}`);
   }
@@ -91,6 +91,8 @@ test("Mobile: Android builds declare internet permission for update checks", () 
   assert(contents.includes('"android.permission.INTERNET"'), "Android internet permission is missing");
   const versionLine = contents.split("\n").find((line) => line.includes("versionCode")) || "";
   assert(!versionLine.includes("usesPermissions"), "usesPermissions was swallowed by the versionCode line");
+  // Solar2D 只接受字串型別；寫成數字會被當成 unrecognized key 而整個忽略。
+  assert(/versionCode\s*=\s*"\d+"/.test(contents), "android versionCode must be a quoted string");
 });
 
 test("UX: game start routes through an explicit mode selection screen", () => {
@@ -113,7 +115,11 @@ test("Responsive UX: settings use the same letterboxed layout as the cover", () 
   const config = read("../src/config.lua");
   const view = read("../src/app_view.lua");
   assert(config.includes('scale = "letterbox"'), "automatic device scaling is missing");
-  const settings = view.slice(view.indexOf("function AppView:showSettings"), view.indexOf("function AppView:showIntro"));
+  const settingsStart = view.indexOf("function AppView:showSettings");
+  assert(settingsStart >= 0, "settings screen is missing");
+  assert(view.indexOf("function AppView:showSettings", settingsStart + 1) === -1, "settings screen is declared twice");
+  const settingsEnd = view.indexOf("\nfunction AppView:", settingsStart + 1);
+  const settings = view.slice(settingsStart, settingsEnd === -1 ? view.length : settingsEnd);
   assert(settings.includes("self:_screen"), "settings do not share the cover layout grid");
   assert(!settings.includes("widget.newScrollView"), "settings use a nested coordinate system");
 });
@@ -185,6 +191,72 @@ test("Documentation: README keeps download badge and ordered player guide", () =
     assert(position > previous, `${heading} is missing or out of order`);
     previous = position;
   }
+});
+
+test("Architecture: turn and screen flow are declared as one hierarchical state machine", () => {
+  const machine = read("../src/state_machine.lua");
+  const game = read("../src/game_controller.lua");
+  const app = read("../src/app_controller.lua");
+  for (const api of ["function StateMachine:enter", "function StateMachine:dispatch", "function StateMachine:isIn"]) {
+    assert(machine.includes(api), `state machine is missing ${api}`);
+  }
+  for (const controller of [game, app]) assert(controller.includes('require("state_machine")'), "controller does not use the shared state machine");
+  assert(game.includes("TURN_STATES"), "turn phases are not declared as states");
+  assert(app.includes("SCREEN_STATES"), "screens are not declared as states");
+  // 輸入鎖只能由 busy 複合狀態持有，否則子狀態又會各自管理旗標。
+  assert((game.match(/isBusy = /g) || []).length === 2, "the input lock is assigned outside the busy composite state");
+  assert(!app.includes('self.screen="'), "screen name is assigned outside the state machine notification");
+  assert(app.includes("onChange=function(owner,state) owner.screen=state end"), "screen name is not derived from the current state");
+});
+
+test("Architecture: every declared state has a known parent and a hierarchy to inherit from", () => {
+  for (const [path, table, groups] of [
+    ["../src/game_controller.lua", "TURN_STATES", ["turn", "busy"]],
+    ["../src/app_controller.lua", "SCREEN_STATES", ["app", "menu", "identity", "leaderboard"]]
+  ]) {
+    const contents = read(path);
+    const start = contents.indexOf(`${table} = {`) >= 0 ? contents.indexOf(`${table} = {`) : contents.indexOf(`${table}={`);
+    assert(start >= 0, `${table} is missing`);
+    const block = contents.slice(start, contents.indexOf("function ", start));
+    const names = new Set();
+    for (const match of block.matchAll(/(?:^|\n)\s{4}(\w+)\s*=\s*\{/g)) names.add(match[1]);
+    for (const group of groups) assert(names.has(group), `${table} is missing composite state ${group}`);
+    for (const match of block.matchAll(/parent\s*=\s*"(\w+)"/g)) {
+      assert(names.has(match[1]), `${table} refers to unknown parent ${match[1]}`);
+    }
+    assert(/initial\s*=\s*"/.test(block), `${table} does not declare an initial child state`);
+  }
+});
+
+test("UX: settings preview live and only persist when saved", () => {
+  const view = read("../src/app_view.lua");
+  const controller = read("../src/app_controller.lua");
+  const service = read("../src/settings_service.lua");
+  const settings = view.slice(view.indexOf("function AppView:showSettings"));
+  assert(settings.includes("function AppView:showSettings(model,save,back,preview)"), "settings screen cannot report live changes");
+  for (const control of ['apply("music")', 'apply("background")', '"effect"']) {
+    assert(settings.includes(control), `settings control does not preview: ${control}`);
+  }
+  for (const api of ["function SettingsService:preview", "function SettingsService:revert", "function SettingsService:isPreviewing"]) {
+    assert(service.includes(api), `settings service is missing ${api}`);
+  }
+  // 預覽不能寫入儲存，還原點只由 update 移動。
+  const preview = service.slice(service.indexOf("function SettingsService:preview"), service.indexOf("function SettingsService:update"));
+  assert(!preview.includes("storage:save"), "preview writes settings to storage");
+  assert(controller.includes("exit=function(app) app.settings:revert() end"), "leaving the settings screen does not restore saved settings");
+});
+
+test("Architecture: no module carries a hardcoded release version", () => {
+  const info = read("../src/app_info.lua");
+  const current = /currentVersion = "([\d.]+)"/.exec(info);
+  assert(current, "current version is missing from app information");
+  for (const path of ["../src/global_leaderboard.lua", "../src/update_service.lua", "../src/app_controller.lua", "../src/game_controller.lua"]) {
+    const contents = read(path);
+    assert(!/"\d+\.\d+\.\d+"/.test(contents), `${path} contains a hardcoded version literal`);
+  }
+  assert(read("../src/global_leaderboard.lua").includes("appInfo.currentVersion"), "leaderboard does not report the running version");
+  const settings = read("../src/build.settings");
+  assert(settings.includes(`CFBundleShortVersionString = "${current[1]}"`), "iOS version does not match app information");
 });
 
 console.log(`Architecture result: ${passed} passed, ${failed} failed\n`);

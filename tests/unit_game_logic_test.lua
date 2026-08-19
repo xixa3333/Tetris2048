@@ -75,8 +75,15 @@ T.test("GameLogic allows same-colored objects to touch without filtering legal p
     local placements = GameLogic.findPlacements(state, 2, 0)
     local hasTouching = false
     for _, placement in ipairs(placements) do
-        if Board.hasAdjacentSameColor(state.grid, placement.shape, placement.row, placement.column) then
-            hasTouching = true
+        for row = 1, #placement.shape do
+            for column = 1, #placement.shape[row] do
+                if placement.shape[row][column] ~= 0 then
+                    local boardRow = placement.row + row - 1
+                    local boardColumn = placement.column + column - 1
+                    -- 與既有同色方塊正上下左右相鄰的落點，仍然算合法。
+                    if math.abs(boardRow - 2) + math.abs(boardColumn - 3) == 1 then hasTouching = true end
+                end
+            end
         end
     end
     T.equal(hasTouching, true)
@@ -169,13 +176,15 @@ T.test("GameLogic keeps the failed placement piece visible on game over", functi
     T.equal(state.rotation, 0)
 end)
 
-T.test("GameLogic.move slides, scores a completed line, and advances queue", function()
+T.test("One turn slides, scores a completed line, and advances the queue", function()
     local state = GameState.new()
     state.currentPiece, state.nextPiece = 1, 2
     for column = 1, 10 do state.grid[1][column] = column end
-    local result = GameLogic.move(state, "up", chooseFirst)
-    T.equal(result.cleared.lineCount >= 1, true)
+    GameLogic.moveBlocks(state, "up")
+    local cleared = GameLogic.clearCompleted(state)
+    T.equal(cleared.lineCount >= 1, true)
     T.equal(state.score >= 10, true)
+    GameLogic.placeQueuedPiece(state, chooseFirst)
     T.equal(state.currentPiece, 2)
 end)
 
@@ -200,7 +209,7 @@ T.test("GameLogic exposes movement, clearing and placement as isolated phases", 
     T.equal(state.currentPiece, 2)
 end)
 
-T.test("GameLogic.move checks completed lines before and after placement", function()
+T.test("A turn scores the lines cleared before and after placement", function()
     local state = GameState.new()
     state.currentPiece, state.nextPiece = 1, 2
     local original = Board.clearCompletedLines
@@ -209,17 +218,19 @@ T.test("GameLogic.move checks completed lines before and after placement", funct
         calls = calls + 1
         return {lineCount = 1, cells = {{row = calls, column = 1}}}
     end
-    local ok, result = pcall(GameLogic.move, state, "left", chooseFirst)
+    local ok, message = pcall(function()
+        GameLogic.moveBlocks(state, "left")
+        GameLogic.clearCompleted(state)
+        GameLogic.placeQueuedPiece(state, chooseFirst)
+        GameLogic.clearCompleted(state)
+    end)
     Board.clearCompletedLines = original
-    if not ok then error(result) end
+    if not ok then error(message) end
     T.equal(calls, 2)
-    T.equal(result.clearedBeforePlacement.lineCount, 1)
-    T.equal(result.clearedAfterPlacement.lineCount, 1)
-    T.equal(result.cleared.lineCount, 2)
     T.equal(state.score, 20)
 end)
 
-T.test("GameLogic.move places the rotated preview shape before resetting rotation", function()
+T.test("A turn places the rotated preview shape before resetting rotation", function()
     local state = GameState.new()
     state.currentPiece, state.nextPiece = 1, 1
     GameLogic.rotateNext(state)
@@ -230,7 +241,11 @@ T.test("GameLogic.move places the rotated preview shape before resetting rotatio
         captured = shape
         return originalPlace(grid, shape, row, column)
     end
-    local ok, message = pcall(GameLogic.move, state, "left", chooseFirst)
+    local ok, message = pcall(function()
+        GameLogic.moveBlocks(state, "left")
+        GameLogic.clearCompleted(state)
+        GameLogic.placeQueuedPiece(state, chooseFirst)
+    end)
     Board.tryPlace = originalPlace
     if not ok then error(message) end
     T.gridEqual(captured, expected)

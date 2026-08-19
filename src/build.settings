@@ -4,14 +4,15 @@ settings = {
         supported = { "portrait", "portraitUpsideDown" },
     },
     android = {
-        versionCode = 18,
+        -- Solar2D 只接受字串型別；寫成數字會被判定為 unrecognized key 而整個忽略。
+        versionCode = "19",
         usesPermissions = {
             "android.permission.INTERNET",
         },
     },
     iphone = {
         plist = {
-            CFBundleShortVersionString = "2.4.1",
+            CFBundleShortVersionString = "2.5.0",
             UIStatusBarHidden = true,
             UILaunchStoryboardName = "LaunchScreen",
         },

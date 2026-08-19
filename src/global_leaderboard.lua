@@ -1,4 +1,5 @@
 local FirestoreUrl=require("firestore_url")
+local appInfo=require("app_info")
 local GlobalLeaderboard={}; GlobalLeaderboard.__index=GlobalLeaderboard
 
 local function field(value)
@@ -33,9 +34,11 @@ function GlobalLeaderboard.new(http,config,auth)
     return setmetatable({http=http,auth=auth,base=base},GlobalLeaderboard)
 end
 
+-- 同上：沒有憑證就不帶授權標頭，讓伺服器正常回 401，而不是在客戶端崩潰。
 function GlobalLeaderboard:_headers()
     local user=self.auth:currentUser()
-    return user and {Authorization="Bearer "..user.idToken} or nil
+    if not user or type(user.idToken)~="string" then return nil end
+    return {Authorization="Bearer "..user.idToken}
 end
 
 function GlobalLeaderboard:_write(user,score,callback,mode)
@@ -43,7 +46,7 @@ function GlobalLeaderboard:_write(user,score,callback,mode)
     self.http:request("PATCH",self.base.."/"..collection().."/"..documentId(user,normalizedMode),{fields={
         uid=field(user.uid),nickname=field(user.nickname),
         score=field(math.floor(score)),updatedAt={timestampValue=os.date("!%Y-%m-%dT%H:%M:%SZ")},
-        version=field("2.3.9"),mode=field(normalizedMode)
+        version=field(appInfo.currentVersion),mode=field(normalizedMode)
     }},self:_headers(),callback)
 end
 
@@ -120,7 +123,9 @@ function GlobalLeaderboard:migrateFrom(oldUser,callback)
         self:_write(newUser,decode(data).score,function(written)
             if not written then callback(false,"新排行榜寫入失敗"); return end
             self.http:request("DELETE",oldUrl,nil,oldHeaders,function(deleted,_,deleteStatus)
-                callback(deleted or deleteStatus==404,(deleted or deleteStatus==404) and nil or "舊排行榜刪除失敗")
+                -- `條件 and nil or 訊息` 在 Lua 永遠會取到訊息，因此成功路徑必須分開回呼。
+                local removed=deleted or deleteStatus==404
+                if removed then callback(true) else callback(false,"舊排行榜刪除失敗") end
             end)
         end,1)
     end)

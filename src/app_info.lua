@@ -1,6 +1,6 @@
 -- Static metadata shared by the controller, view and tests.
 return {
-    currentVersion = "2.4.1",
+    currentVersion = "2.5.0",
     displayName = "BlockMerge 2048",
     repositoryUrl = "https://github.com/xixa3333/Tetris2048",
     issuesUrl = "https://github.com/xixa3333/Tetris2048/issues",
@@ -8,6 +8,15 @@ return {
     latestReleaseUrl = "https://github.com/xixa3333/Tetris2048/releases/latest",
     latestReleaseApiUrl = "https://api.github.com/repos/xixa3333/Tetris2048/releases/latest",
     versions = {
+        {version = "2.5.0", bullets = {
+            "沒有網路也能玩，會沿用上次登入的帳號，本機排行榜照常記錄。",
+            "離線時打的分數，恢復網路後會自動上傳全球排行榜。",
+            "登入頁新增快捷登入，可以直接選這台裝置登入過的帳號，也能單獨移除。",
+            "帳號頁新增刪除帳號，需要網路並二次確認。",
+            "設定裡調整音量或音樂會立即試聽，按儲存才會保留。",
+            "排行榜會顯示目前玩家暱稱，離線時另外標示。",
+            "遊戲流程整體重寫，切換畫面與回到遊戲更穩定。"
+        }},
         {version = "2.4.1", bullets = {
             "設定裡可以選背景音樂，想輕鬆玩或換成恐怖氣氛都可以。",
             "遊戲開著時會持續播放背景音樂，切到背景後會停止，回來後再繼續播放。",

@@ -47,3 +47,9 @@ T.test("Update checker silently reports network and malformed response failures"
             :check(function(ok) T.equal(ok,false) end)
     end
 end)
+
+T.test("Update checker refuses to compare against an unreadable version",function()
+    T.equal(UpdateService.isNewer("2.5.0",""),false)
+    T.equal(UpdateService.isNewer("","2.5.0"),false)
+    T.equal(UpdateService.isNewer("v2.5.0","v2.4.1"),true)
+end)

@@ -58,3 +58,37 @@ T.test("Auth stores and clears a successful Firebase session",function()
     auth:signIn("A@example.com","123456",function(ok) T.equal(ok,true) end)
     T.equal(auth:currentUser().uid,"uid"); auth:signOut(); T.equal(auth:isSignedIn(),false)
 end)
+
+T.test("Local leaderboard reports a failed deletion instead of silently succeeding",function()
+    local board=LocalLeaderboard.new(memoryStorage())
+    local record=board:add("u","player",10,1)
+    T.equal(board:remove("u","not-a-record"),false)
+    T.equal(board:remove("missing-uid",record.id),false)
+    T.equal(board:remove("u",record.id),true)
+    T.equal(#board:listAll(),0)
+end)
+
+T.test("Auth keeps the specific Firebase reason instead of the generic fallback",function()
+    local http={}
+    function http:request(_,_,_,_,callback) callback(false,{error={message="EMAIL_NOT_FOUND"}}) end
+    local auth=AuthService.new(http,{apiKey="test"})
+    auth:sendPasswordReset("old@example.com",function(ok,message)
+        T.equal(ok,false); T.equal(message,"找不到這個帳號")
+    end)
+    local unknown={}
+    function unknown:request(_,_,_,_,callback) callback(false,{error={message="SOMETHING_NEW"}}) end
+    AuthService.new(unknown,{apiKey="test"}):sendPasswordReset("old@example.com",function(ok,message)
+        T.equal(ok,false); T.equal(message,"忘記密碼信寄送失敗")
+    end)
+end)
+
+T.test("Local leaderboard shows the newest run first when scores tie",function()
+    local board=LocalLeaderboard.new(memoryStorage())
+    board:add("u","player",50,100)
+    board:add("u","player",50,300)
+    board:add("u","player",50,200)
+    local records=board:list("u")
+    T.equal(#records,3)
+    T.equal(records[1].playedAt,300); T.equal(records[2].playedAt,200); T.equal(records[3].playedAt,100)
+    T.equal(board:listAll()[1].playedAt,300)
+end)

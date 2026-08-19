@@ -2,7 +2,10 @@
   "name": "tetris2048-tests",
   "private": true,
   "scripts": {
-    "test": "fengari syntax_check.lua && node architecture_check.js && fengari run.lua"
+    "test": "fengari syntax_check.lua && node architecture_check.js && fengari run.lua",
+    "mutation": "node mutation_check.js",
+    "mutation:game": "node mutation_check.js game",
+    "mutation:app": "node mutation_check.js app"
   },
   "devDependencies": {
     "fengari-node-cli": "0.1.0"
